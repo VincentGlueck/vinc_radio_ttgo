@@ -5,6 +5,12 @@ https://www.youtube.com/@VolosProjects
 
 *TTGO/LILIGO board required, ESP32 required, Uno R3 or similar = no*
 
+German alike, so most of the streams are provided by vendors near by.
+
+_stations.h_
+
+Fix to acc. to your needs.
+
 As this prog runs in MONO (not STEREO) only PIN26 and GND must be connected as Cinch/3.5mm output. Voltage/level will fit.
 
 Sorry, bluetooth speakers currently not supported.
