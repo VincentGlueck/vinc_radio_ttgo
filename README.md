@@ -9,7 +9,7 @@ German alike, so most of the streams are provided by vendors near by.
 
 _stations.h_
 
-Fix to acc. to your needs.
+Overwrite to meet your needs.
 
 As this prog runs in MONO (not STEREO) only PIN26 and GND must be connected as Cinch/3.5mm output. Voltage/level will fit.
 
@@ -24,3 +24,8 @@ Sorry, bluetooth speakers currently not supported.
 * flickers
 * shows dummy volume bar
 * does not measure length of title correct (display issue)
+
+# Credits
+* audio, https://github.com/earlephilhower/ESP8266Audio
+* title scroller inspired by mrdude2478, https://github.com/Bodmer/TFT_eSPI/discussions/1828
+* Volos projects, https://www.youtube.com/@VolosProjects
