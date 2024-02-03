@@ -40,13 +40,13 @@ Default PIN layout
 #include "frame.h"
 #include "Orbitron_Medium_20.h"
 
-//#define USE_SERIAL_OUT
+#define USE_SERIAL_OUT
 // this will flood the console and slow down things dramatically
 // consider going to 115.200baud rate if you need debug infos
 
 #define TFT_GREY 0x5AEB
 #define BRIGHTNESS 220        // brightness during display = on
-#define TFT_OFF_TIMEOUT 20    // increase/decrease to tweak power consume (diplay off timer) // defaults to 20
+#define TFT_OFF_TIMEOUT 120   // increase/decrease to tweak power consume (diplay off timer) // defaults to 20
 #define CONNECT_DISPLAY       // uncomment to speed things up at start
 #define CREDITS_DISPLAY       // uncomment to be unkind ;-)
 #define DELAY_START_UP 300
@@ -73,14 +73,11 @@ const int pwmLedChannelTFT = 0;
 const int BTN0 = 0;  // standard TTGO built-in buttons
 const int BTN1 = 35;
 
-const int numCh = sizeof(arrayURL) / sizeof(char *);
 bool TestMode = false;
 uint32_t LastTime = 0;
 bool playflag = false;
-float fgain = 4.0;
 int station = 0;
-char *URL = arrayURL[station];
-String stationName = arrayStation[station];
+float fgain = fgain = stations[station].gain;
 String title, lastTitle = "?";
 int titleScroll = 134;
 int globalCnt, frameCnt;
@@ -101,9 +98,10 @@ AudioOutputI2S *out;
 TFT_eSPI tft = TFT_eSPI();
 
 void setup() {
-  Serial.begin(9600);
+#ifdef USE_SERIAL_OUT
+  Serial.begin(115200);
   while (!Serial) delay(1);
-
+#endif
   pinMode(BTN0, INPUT);
   pinMode(BTN1, INPUT);
 
@@ -182,7 +180,7 @@ void initial_setup() {
   tft.println("vincRadio");
   draw_status("Ready", Y_STATUS);
   draw_status(String(fgain), 66);
-  tft.drawString(String(arrayStation[station]), 12, 108, 2);
+  tft.drawString(stations[station].name, 12, 108, 2);
   draw_box("Status", Y_STATUS, TFT_BLUE, TFT_WHITE);
   draw_box("Volume", Y_VOLUME, TFT_DARKGREY, TFT_WHITE);
   draw_box("Time", Y_TIME, TFT_BROWN, TFT_BLACK);
@@ -225,10 +223,7 @@ void show_play_time() {
 }
 
 void loop() {
-  tft.setFreeFont(NULL);
-  tft.setTextFont(2);
-  tft.setTextSize(1);
-  if ((globalCnt & 0x1f) == 0x1f) {
+  if ((globalCnt & 0x3f) == 0x3f) {
     do_display_brightness();
   }
   if (tftOff && ((globalCnt & 0x1f) != 0x1f)) {
@@ -271,14 +266,13 @@ void loop() {
       tftOffTimer = 0;
       while (digitalRead(BTN1) == LOW) delay(1);
       station++;
-      if (station >= (numCh - 1)) station = 0;
-      URL = arrayURL[station];
-      stationName = arrayStation[station];
+      if (station >= (sizeof(stations) / sizeof(Station) - 1)) station = 0;
+      fgain = stations[station].gain;
       streamingForMs = 0;
       tft.setTextSize(1);
       tft.setFreeFont(NULL);
       tft.fillRect(2, 108, 135 - 12, 16, TFT_BLACK);
-      tft.drawString(String(stationName), 2, 108, 2);
+      tft.drawString(stations[station].name, 2, 108, 2);
     }
   }
 
@@ -312,7 +306,7 @@ void loop() {
 
   } else {
 #ifdef USE_SERIAL_OUT
-    Serial.printf("MP3 done\n");
+    // Serial.printf("MP3 done\n");
 #endif
     streamingForMs = 0;
   }
@@ -367,7 +361,7 @@ void init_wifi() {
 #ifdef USE_SERIAL_OUT
     Serial.print("STATUS(Connecting to WiFi) ");
 #endif
-    delay(1000);
+    delay(200);
     i = i + 1;
     if (i > 100) {
 #ifdef USE_SERIAL_OUT
@@ -381,9 +375,8 @@ void init_wifi() {
 #endif
 }
 
-
 void StartPlaying() {
-  file = new AudioFileSourceICYStream(URL);
+  file = new AudioFileSourceICYStream(stations[station].url);
   file->RegisterMetadataCB(MDCallback, (void *)"ICY");
   buf = new AudioFileSourceBuffer(file, 0x800);  // increase if needed
   buf->RegisterStatusCB(StatusCallback, (void *)"buffer");
@@ -394,7 +387,7 @@ void StartPlaying() {
   mp3->RegisterStatusCB(StatusCallback, (void *)"mp3");
   mp3->begin(buf, out);
 #ifdef USE_SERIAL_OUT
-  Serial.printf("STATUS(URL) %s \n", URL);
+  Serial.printf("STATUS(URL) %s \n", stations[station].url);
   Serial.flush();
 #endif
 }
