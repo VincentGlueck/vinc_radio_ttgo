@@ -381,7 +381,7 @@ void loop() {
 
 void display(bool on) {
   tftOff = !on;
-  deltaBrightness = on ? 1 : -1;
+  deltaBrightness = on ? 3 : -1;
 }
 
 void do_display_brightness() {
