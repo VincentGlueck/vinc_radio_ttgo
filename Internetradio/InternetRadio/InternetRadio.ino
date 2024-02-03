@@ -59,8 +59,8 @@ Default PIN layout
 * connect GND!!!      *
  *********************/
 
-const char *SSID = "VincentVega01";
-const char *PASSWORD = "winter01";
+const char *SSID = "*** Your WiFi name***";
+const char *PASSWORD = "*** pw ***";
 
 // various screen positions
 #define Y_STATUS 44
