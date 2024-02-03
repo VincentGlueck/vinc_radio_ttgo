@@ -159,7 +159,7 @@ void show_credits() {
   tft.drawString("youtube.com/", 2, 180, 2);
   tft.drawString("@VolosProjects", 24, 200, 2);
   tft.drawString("inspired by", 8, 24, 2);
-  delay(DELAY_START_UP << 1);
+  delay(DELAY_START_UP >> 2);
 }
 
 void draw_box(String str, int y, int bgcolor, int color) {
@@ -167,7 +167,7 @@ void draw_box(String str, int y, int bgcolor, int color) {
   tft.fillRoundRect(2, y-1, 64, 16, 3, bgcolor);
   tft.setTextColor(color, bgcolor);
   tft.setTextSize(1);
-  tft.setCursor(6, y, 2);
+  tft.setCursor(6, y-1, 2);
   tft.print(str);
   tft.setTextColor(TFT_WHITE, TFT_BLACK);
 }
@@ -180,7 +180,7 @@ void initial_setup() {
   tft.println("vincRadio");
   draw_status("Ready", Y_STATUS);
   draw_status(String(fgain), 66);
-  tft.drawString(stations[station].name, 12, 108, 2);
+  tft.drawString(stations[station].name, 12, 110, 2);
   draw_box("Status", Y_STATUS, TFT_BLUE, TFT_WHITE);
   draw_box("Volume", Y_VOLUME, TFT_DARKGREY, TFT_WHITE);
   draw_box("Time", Y_TIME, TFT_BROWN, TFT_BLACK);
@@ -271,8 +271,8 @@ void loop() {
       streamingForMs = 0;
       tft.setTextSize(1);
       tft.setFreeFont(NULL);
-      tft.fillRect(2, 108, 135 - 12, 16, TFT_BLACK);
-      tft.drawString(stations[station].name, 2, 108, 2);
+      tft.fillRect(0, 110, 135, 16, TFT_BLACK);
+      tft.drawString(stations[station].name, 2, 110, 2);
     }
   }
 
