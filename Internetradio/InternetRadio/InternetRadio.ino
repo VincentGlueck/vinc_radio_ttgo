@@ -36,9 +36,10 @@ Default PIN layout
 #include <TFT_eSPI.h>
 #include <SPI.h>
 #include <spiram-fast.h>
+#include "Orbitron_Medium_20.h"
 #include "stations.h"
 #include "frame.h"
-#include "Orbitron_Medium_20.h"
+#include "colors.h"
 
 #define USE_SERIAL_OUT
 // this will flood the console and slow down things dramatically
@@ -73,6 +74,9 @@ const char *PASSWORD = "winter01";
 #define TFT_W 135
 #define TFT_H 240
 
+uint16_t bgColor = TFT_BLACK;
+
+uint16_t mainColor = foregroundColors[3];
 
 const int pwmFreq = 5000;
 const int pwmResolution = 8;
@@ -104,7 +108,7 @@ uint16_t array_pos = 0;
 uint8_t changecol = 0;
 unsigned long nowMillis;
 unsigned long startMillis;
-uint8_t scrolldelay = 15; 
+uint8_t scrolldelay = 15;
 int tcount;
 String blank;
 const uint8_t fontwidth = (16);
@@ -187,14 +191,14 @@ void show_credits() {
   delay(DELAY_START_UP);
 }
 
-void draw_box(String str, int y, int bgcolor, int color) {
+void draw_box(String str, int y, int bgcolor) {
   tft.setFreeFont(NULL);
-  tft.fillRoundRect(2, y - 1, 64, 16, 3, bgcolor);
-  tft.setTextColor(color, bgcolor);
+  tft.drawRoundRect(2, y - 1, 64, 16, 3, mainColor);
+  tft.setTextColor(mainColor, bgcolor);
   tft.setTextSize(1);
   tft.setCursor(6, y - 1, 2);
   tft.print(str);
-  tft.setTextColor(TFT_WHITE, TFT_BLACK);
+  tft.setTextColor(mainColor, bgcolor);
 }
 
 void initial_setup() {
@@ -205,19 +209,20 @@ void initial_setup() {
   tft.println("vincRadio");
   draw_status("Ready", Y_STATUS);
   draw_status(String(fgain), Y_GAIN);
-  tft.drawString(stations[station].name, 12, 110, 2);
-  draw_box("Status", Y_STATUS, TFT_BLUE, TFT_WHITE);
-  draw_box("Volume", Y_GAIN, TFT_DARKGREY, TFT_WHITE);
-  draw_box("Time", Y_TIME, TFT_BROWN, TFT_BLACK);
+  tft.drawString(stations[station].name, 2, 110, 2);
+  draw_box("Status", Y_STATUS, mainColor);
+  draw_box("Volume", Y_GAIN, mainColor);
+  draw_box("Time", Y_TIME, mainColor);
   tft.setFreeFont(NULL);
   tft.setTextSize(2);
-  stext.setTextColor(TFT_WHITE, TFT_BLACK);
+  stext.setTextColor(mainColor, mainColor);
 }
 
 void draw_status(String status, int pos) {
   tft.fillRect(78, pos, 135 - 78, 16, TFT_BLACK);
   tft.setTextFont(2);
   tft.setTextSize(1);
+  tft.setTextColor(mainColor);
   tft.drawString(status, 78, pos, 2);
 }
 
@@ -226,7 +231,7 @@ void show_play_time() {
     tft.fillRect(78, 91, 135 - 78, 14, TFT_BLACK);
     tft.setTextSize(1);
     tft.fillRect(78, 91, 135 - 78, 16, TFT_BLACK);
-    tft.setTextColor(TFT_WHITE);
+    tft.setTextColor(mainColor);
     tft.drawString("--:--", 78, 90, 2);
     return;
   }
@@ -242,7 +247,7 @@ void show_play_time() {
   if (str != lastPlayTime) {
     tft.setTextSize(1);
     tft.fillRect(78, 91, 135 - 78, 16, TFT_BLACK);
-    tft.setTextColor(TFT_WHITE);
+    tft.setTextColor(mainColor);
     tft.drawString(str, 78, 90, 2);
     lastPlayTime = str;
   }
@@ -258,6 +263,7 @@ void scrollLoop() {
   if (array_pos >= arraysize) {
     array_pos = 0;
   }
+  stext.setTextColor(mainColor);
   stext.createSprite(TFT_W + fontwidth, 32);
   if (nowMillis - startMillis >= scrolldelay) {
     stext.pushSprite(0, Y_SCROLL);
@@ -323,7 +329,7 @@ void loop() {
       streamingForMs = 0;
       tft.setTextSize(1);
       tft.setFreeFont(NULL);
-      tft.fillRect(0, 110, 135, 16, TFT_BLACK);
+      tft.fillRect(0, 110, 135, 24, TFT_BLACK);
       tft.drawString(stations[station].name, 2, 110, 2);
     }
   }
@@ -344,7 +350,7 @@ void loop() {
 
   if (playflag && !tftOff) {
     if (lastTitle != title) {
-      if(title.length() == 0) {
+      if (title.length() == 0) {
         title = "No title " + String(stations[station].name);
       }
       lastTitle = title;
