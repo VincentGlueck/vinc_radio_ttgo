@@ -41,7 +41,8 @@ Default PIN layout
 #include <spiram-fast.h>
 #include "Orbitron_Medium_20.h"
 #include "stations.h"
-#include "frame.h"
+//#include "frame.h"
+#include "bg.h"
 #include "colors.h"
 
 #define USE_SERIAL_OUT
@@ -111,7 +112,6 @@ TFT_eSprite ttext = TFT_eSprite(&tft);
 
 // scroll
 uint16_t array_pos = 0;
-uint8_t changecol = 0;
 unsigned long nowMillis;
 unsigned long startMillis;
 uint8_t scrolldelay = 12;
@@ -171,7 +171,7 @@ void setup() {
   stext.setTextWrap(false);  // Don't wrap text to next line
   stext.setTextSize(2);  // larger letters
   ttext.setTextWrap(false);
-  ttext.setTextFont(1);
+  ttext.setTextFont(2);
 }
 
 void show_credits() {
@@ -191,17 +191,17 @@ void show_credits() {
 
 void draw_box(String str, int y, int bgcolor) {
   tft.setFreeFont(NULL);
-  tft.drawRoundRect(2, y - 1, 64, 16, 3, bgcolor);
-  tft.setTextColor(foreGroundColor, bgcolor);
+  tft.fillRoundRect(2, y - 1, 64, 16, 3, foreGroundColor);
+  tft.setTextColor(backGroundColor);
   tft.setTextSize(1);
   tft.setCursor(6, y - 1, 2);
   tft.print(str);
-  tft.setTextColor(foreGroundColor, backGroundColor);
+  tft.setTextColor(foreGroundColor);
 }
 
 void initialSetup() {
   tft.setTextSize(1);
-  tft.fillScreen(backGroundColor);
+  tft.pushImage(0, 0, 135, 240, test_bg);
   tft.setFreeFont(&Orbitron_Medium_20);
   tft.setCursor(2, 20);
   tft.println("vincRadio");
@@ -210,19 +210,20 @@ void initialSetup() {
 }
 
 void drawLabels() {
-  tft.setTextColor(foreGroundColor, backGroundColor);
+  tft.setTextColor(foreGroundColor);
   draw_status("Ready", Y_STATUS);
   draw_status(String(fgain), 66);
+  tft.fillRect(0, 110-2, 135, 16+4, backGroundColor);
   tft.drawString(stations[station].name, 2, 110, 2);
-  draw_box("Status", Y_STATUS, foreGroundColor);
-  draw_box("Volume", Y_VOLUME, foreGroundColor);
-  draw_box("Time", Y_TIME, foreGroundColor);
+  draw_box("Status", Y_STATUS, backGroundColor);
+  draw_box("Volume", Y_VOLUME, backGroundColor);
+  draw_box("Time", Y_TIME, backGroundColor);
   tft.setFreeFont(NULL);
   tft.setTextSize(2);
 }
 
 void draw_status(String status, int pos) {
-  tft.fillRect(78, pos, 135 - 78, 16, backGroundColor);
+  tft.fillRoundRect(72, pos-1, 135 - 76, 18, 3, backGroundColor);
   tft.setTextFont(2);
   tft.setTextSize(1);
   tft.setTextColor(foreGroundColor, backGroundColor);
@@ -231,8 +232,8 @@ void draw_status(String status, int pos) {
 
 void showPlayTime() {
   String str = "";
-  ttext.createSprite(tft.width()-78, 16);
-  ttext.fillRect(0, 0, tft.width()-78, 16, backGroundColor);
+  ttext.createSprite(tft.width()-74-6, 16);
+  ttext.fillRoundRect(0, 0, tft.width()-74-4, 14, 3, backGroundColor);
   if (streamingForMs == 0) {
     str = "--:--";
   } else {
@@ -249,8 +250,8 @@ void showPlayTime() {
     }
   }
   ttext.setTextColor(foreGroundColor);
-  ttext.drawString(str, 0, 0, 2);
-  ttext.pushSprite(78, 90);
+  ttext.drawString(str, 4, 0, 2);
+  ttext.pushSprite(74, 90);
 }
 
 void nextColor() {
@@ -270,13 +271,9 @@ void scrollText(){
   if (array_pos >= arraysize){
     array_pos = 0;
   }
-  if (changecol >= arraysize){
-    changecol = 0;
-    stext.setTextColor(foreGroundColor);
-  }
   stext.createSprite(TFT_W+fontwidth, 32);
-
-
+  //stext.fillRect(0, 0, TFT_W, 32, TFT_BLUE);
+  stext.setTextFont(foreGroundColor);
   if (nowMillis - startMillis >= scrolldelay) {
     stext.pushSprite(0, Y_SCROLL);
     stext.scroll(-1);
@@ -286,10 +283,13 @@ void scrollText(){
       tcount = fontwidth;
       stext.drawString(String(x), TFT_W, 0, 1);
       array_pos++;
-      changecol++;
     }
     startMillis = nowMillis;
   }
+}
+
+void restoreBg(int y, int height) {
+  tft.pushImage(0, y, 135, height, &test_bg[0]);
 }
 
 void loop() {
@@ -304,7 +304,7 @@ void loop() {
       display(true);
     }
   }
-
+/*
   if (!tftOff && ((globalCnt & 0x3f) != 0x3f)) {
     if (playflag) {
       tft.pushImage(X_FRAME, Y_FRAME, animation_width, animation_height, frame[frameCnt++]);
@@ -313,11 +313,12 @@ void loop() {
       tft.pushImage(Y_FRAME, X_FRAME, animation_width, animation_height, frame[frames - 1]);
     }
   }
+  */
   globalCnt++;
   if (!tftOff) {
     if ((globalCnt & 0x1ff) == 0x1ff) {
       tftOffTimer++;
-      if (tftOffTimer > TFT_OFF_TIMEOUT) {
+      if (tftOffTimer > (TFT_OFF_TIMEOUT << 4)) {
         display(false);
       }
     }
@@ -342,7 +343,7 @@ void loop() {
       streamingForMs = 0;
       tft.setTextSize(1);
       tft.setFreeFont(NULL);
-      tft.fillRect(0, 110, 135, 16, backGroundColor);
+      tft.fillRect(0, 110-2, 135, 16+4, backGroundColor);
       tft.drawString(stations[station].name, 2, 110, 2);
     }
   }
