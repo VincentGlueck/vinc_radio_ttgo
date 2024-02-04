@@ -11,7 +11,7 @@ _stations.h_
 
 Overwrite to meet your needs.
 
-As this prog runs in MONO (not STEREO) only PIN26 and GND must be connected as Cinch/3.5mm output. Voltage/level will fit.
+As this prog runs in MONO (not STEREO) only PIN26 and GND must be connected as Cinch/3.5mm output. Voltage/level will fit - quite.
 
 Sorry, bluetooth speakers currently not supported.
 
@@ -20,8 +20,6 @@ Sorry, bluetooth speakers currently not supported.
 
 # Limitations
 
-* does not look cute
-* flickers
 * shows dummy volume bar
 * does not measure length of title correct (display issue)
 
