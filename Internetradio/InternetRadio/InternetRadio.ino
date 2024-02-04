@@ -25,6 +25,9 @@ Default PIN layout
 #error "Requires ESP32, TTGO TFT display (135x240 pixels)"
 #endif
 
+#define TFT_W 135
+#define TFT_H 240
+
 #include <WiFi.h>
 #include <AudioFileSource.h>
 #include <AudioFileSourceBuffer.h>
@@ -44,13 +47,14 @@ Default PIN layout
 #define USE_SERIAL_OUT
 // this will flood the console and slow down things dramatically
 // consider going to 115.200baud rate if you need debug infos
+#define DEEP_SERIAL_OUT
+// this even more
 
-#define TFT_GREY 0x5AEB
 #define BRIGHTNESS 220       // brightness during display = on
-#define TFT_OFF_TIMEOUT 120  // increase/decrease to tweak power consume (diplay off timer) // defaults to 20
+#define TFT_OFF_TIMEOUT 1200 // increase/decrease to tweak power consume (diplay off timer) // defaults to 20
 #define CONNECT_DISPLAY      // uncomment to speed things up at start
 #define CREDITS_DISPLAY      // uncomment to be unkind ;-)
-#define DELAY_START_UP 2000  // show credits
+#define DELAY_START_UP 300
 
 
 /**********************
@@ -59,24 +63,15 @@ Default PIN layout
 * connect GND!!!      *
  *********************/
 
-const char *SSID = "*** Your WiFi name***";
-const char *PASSWORD = "*** pw ***";
+const char *SSID = "VincentVega01";
+const char *PASSWORD = "winter01";
 
-// various screen positions
 #define Y_STATUS 44
 #define Y_VOLUME 66
 #define Y_TIME 88
 #define Y_SCROLL 220
-#define X_FRAME 42
-#define Y_FRAME 136
-#define Y_GAIN 66
-
-#define TFT_W 135
-#define TFT_H 240
-
-uint16_t bgColor = TFT_BLACK;
-
-uint16_t mainColor = foregroundColors[3];
+#define X_FRAME 38
+#define Y_FRAME 134
 
 const int pwmFreq = 5000;
 const int pwmResolution = 8;
@@ -85,6 +80,9 @@ const int pwmLedChannelTFT = 0;
 const int BTN0 = 0;  // standard TTGO built-in buttons
 const int BTN1 = 35;
 
+uint8_t color = 0;
+uint16_t foreGroundColor = foregroundColors[color];
+uint16_t backGroundColor = TFT_BLACK;
 bool TestMode = false;
 uint32_t LastTime = 0;
 bool playflag = false;
@@ -102,26 +100,24 @@ uint32_t lastms = 0;
 uint32_t streamingForMs = 0;
 String lastPlayTime = "x";
 
-// scrolling only
-String lcdscroller;
-uint16_t array_pos = 0;
-uint8_t changecol = 0;
-unsigned long nowMillis;
-unsigned long startMillis;
-uint8_t scrolldelay = 15;
-int tcount;
-String blank;
-const uint8_t fontwidth = (16);
-// end of scrolling only
-
 AudioGeneratorTalkie *talkie;
 AudioGeneratorMP3 *mp3;
 AudioFileSourceICYStream *file;
 AudioFileSourceBuffer *buf;
 AudioOutputI2S *out;
 TFT_eSPI tft = TFT_eSPI();
+TFT_eSprite stext = TFT_eSprite(&tft); 
+TFT_eSprite ttext = TFT_eSprite(&tft);
 
-TFT_eSprite stext = TFT_eSprite(&tft);
+// scroll
+uint16_t array_pos = 0;
+uint8_t changecol = 0;
+unsigned long nowMillis;
+unsigned long startMillis;
+uint8_t scrolldelay = 12;
+int tcount;
+String blank;
+const uint8_t fontwidth = (16);
 
 void setup() {
 #ifdef USE_SERIAL_OUT
@@ -134,13 +130,10 @@ void setup() {
   tft.init();
   tft.setRotation(0);
   tft.setSwapBytes(true);
-  stext.setTextWrap(false);
-  stext.setTextSize(3);
-  startMillis = millis();
   display(true);
 
   tft.setFreeFont(&Orbitron_Medium_20);
-  tft.fillScreen(TFT_BLACK);
+  tft.fillScreen(backGroundColor);
 
   tft.setCursor(0, 20, 2);
   tft.println("WIFI");
@@ -151,7 +144,7 @@ void setup() {
   delay(DELAY_START_UP);
 #endif
 
-  tft.fillScreen(TFT_BLACK);
+  tft.fillScreen(backGroundColor);
   tft.setCursor(0, 60);
   tft.println("Done");
   tft.setFreeFont(NULL);
@@ -173,14 +166,19 @@ void setup() {
   out->SetOutputModeMono(true);
   out->SetGain(fgain * 0.05);
 
-  initial_setup();
+  initialSetup();
+  startMillis = millis();
+  stext.setTextWrap(false);  // Don't wrap text to next line
+  stext.setTextSize(2);  // larger letters
+  ttext.setTextWrap(false);
+  ttext.setTextFont(1);
 }
 
 void show_credits() {
   tft.setFreeFont(NULL);
   tft.setCursor(0, 20, 2);
   tft.setFreeFont(&Orbitron_Medium_20);
-  tft.fillScreen(TFT_BLACK);
+  tft.fillScreen(backGroundColor);
   tft.setCursor(0, 60);
 
   tft.println("Volos\nprojects");
@@ -188,88 +186,102 @@ void show_credits() {
   tft.drawString("youtube.com/", 2, 180, 2);
   tft.drawString("@VolosProjects", 24, 200, 2);
   tft.drawString("inspired by", 8, 24, 2);
-  delay(DELAY_START_UP);
+  delay(DELAY_START_UP >> 2);
 }
 
 void draw_box(String str, int y, int bgcolor) {
   tft.setFreeFont(NULL);
-  tft.drawRoundRect(2, y - 1, 64, 16, 3, mainColor);
-  tft.setTextColor(mainColor, bgcolor);
+  tft.drawRoundRect(2, y - 1, 64, 16, 3, bgcolor);
+  tft.setTextColor(foreGroundColor, bgcolor);
   tft.setTextSize(1);
   tft.setCursor(6, y - 1, 2);
   tft.print(str);
-  tft.setTextColor(mainColor, bgcolor);
+  tft.setTextColor(foreGroundColor, backGroundColor);
 }
 
-void initial_setup() {
+void initialSetup() {
   tft.setTextSize(1);
-  tft.fillScreen(TFT_BLACK);
+  tft.fillScreen(backGroundColor);
   tft.setFreeFont(&Orbitron_Medium_20);
   tft.setCursor(2, 20);
   tft.println("vincRadio");
+  drawLabels();
+  showPlayTime();
+}
+
+void drawLabels() {
+  tft.setTextColor(foreGroundColor, backGroundColor);
   draw_status("Ready", Y_STATUS);
-  draw_status(String(fgain), Y_GAIN);
+  draw_status(String(fgain), 66);
   tft.drawString(stations[station].name, 2, 110, 2);
-  draw_box("Status", Y_STATUS, mainColor);
-  draw_box("Volume", Y_GAIN, mainColor);
-  draw_box("Time", Y_TIME, mainColor);
+  draw_box("Status", Y_STATUS, foreGroundColor);
+  draw_box("Volume", Y_VOLUME, foreGroundColor);
+  draw_box("Time", Y_TIME, foreGroundColor);
   tft.setFreeFont(NULL);
   tft.setTextSize(2);
-  stext.setTextColor(mainColor, mainColor);
 }
 
 void draw_status(String status, int pos) {
-  tft.fillRect(78, pos, 135 - 78, 16, TFT_BLACK);
+  tft.fillRect(78, pos, 135 - 78, 16, backGroundColor);
   tft.setTextFont(2);
   tft.setTextSize(1);
-  tft.setTextColor(mainColor);
+  tft.setTextColor(foreGroundColor, backGroundColor);
   tft.drawString(status, 78, pos, 2);
 }
 
-void show_play_time() {
-  if (streamingForMs == 0) {
-    tft.fillRect(78, 91, 135 - 78, 14, TFT_BLACK);
-    tft.setTextSize(1);
-    tft.fillRect(78, 91, 135 - 78, 16, TFT_BLACK);
-    tft.setTextColor(mainColor);
-    tft.drawString("--:--", 78, 90, 2);
-    return;
-  }
-  uint32_t t = streamingForMs >> 10;
-  uint8_t hour = t / 3600;
+void showPlayTime() {
   String str = "";
-  if (hour > 0) {
-    str += (String(hour)) + ":";
+  ttext.createSprite(tft.width()-78, 16);
+  ttext.fillRect(0, 0, tft.width()-78, 16, backGroundColor);
+  if (streamingForMs == 0) {
+    str = "--:--";
+  } else {
+    uint32_t t = streamingForMs >> 10;
+    uint8_t hour = t / 3600;
+    if (hour > 0) {
+      str += (String(hour)) + ":";
+    }
+    str += String(t / 60) + ":";
+    uint8_t sec = t % 60;
+    str += (sec < 10 ? "0" : "") + String(sec);
+    if (str != lastPlayTime) {
+      lastPlayTime = str;
+    }
   }
-  str += String(t / 60) + ":";
-  uint8_t sec = t % 60;
-  str += (sec < 10 ? "0" : "") + String(sec);
-  if (str != lastPlayTime) {
-    tft.setTextSize(1);
-    tft.fillRect(78, 91, 135 - 78, 16, TFT_BLACK);
-    tft.setTextColor(mainColor);
-    tft.drawString(str, 78, 90, 2);
-    lastPlayTime = str;
-  }
+  ttext.setTextColor(foreGroundColor);
+  ttext.drawString(str, 0, 0, 2);
+  ttext.pushSprite(78, 90);
 }
 
-void scrollLoop() {
-  nowMillis = millis();
-  blank = "     ";
-  lcdscroller = title + blank;
-  uint16_t arraysize = lcdscroller.length() + 1;
+void nextColor() {
+  color++;
+  if (color >= sizeof(foregroundColors) / sizeof(uint16_t)) color = 0;
+  foreGroundColor = foregroundColors[color];
+  Serial.print("color: " + String(color) + "; value: ");
+  Serial.println(foreGroundColor, HEX);
+  drawLabels();
+}
+
+void scrollText(){
+  uint16_t arraysize = title.length()+1;
   char string_array[arraysize];
-  lcdscroller.toCharArray(string_array, arraysize);
-  if (array_pos >= arraysize) {
+  title.toCharArray(string_array, arraysize);
+  
+  if (array_pos >= arraysize){
     array_pos = 0;
   }
-  stext.setTextColor(mainColor);
-  stext.createSprite(TFT_W + fontwidth, 32);
+  if (changecol >= arraysize){
+    changecol = 0;
+    stext.setTextColor(foreGroundColor);
+  }
+  stext.createSprite(TFT_W+fontwidth, 32);
+
+
   if (nowMillis - startMillis >= scrolldelay) {
     stext.pushSprite(0, Y_SCROLL);
     stext.scroll(-1);
     tcount--;
-    if (tcount <= 0) {
+    if (tcount <=0) {
       char x = string_array[array_pos];
       tcount = fontwidth;
       stext.drawString(String(x), TFT_W, 0, 1);
@@ -281,7 +293,8 @@ void scrollLoop() {
 }
 
 void loop() {
-  if ((globalCnt & 0x3f) == 0x3f) {
+  nowMillis = millis();
+  if ((globalCnt & 0x1f) == 0x1f) {
     do_display_brightness();
   }
   if (tftOff && ((globalCnt & 0x1f) != 0x1f)) {
@@ -291,12 +304,13 @@ void loop() {
       display(true);
     }
   }
+
   if (!tftOff && ((globalCnt & 0x3f) != 0x3f)) {
     if (playflag) {
       tft.pushImage(X_FRAME, Y_FRAME, animation_width, animation_height, frame[frameCnt++]);
       if (frameCnt == frames) frameCnt = 0;
     } else {
-      tft.pushImage(X_FRAME, Y_FRAME, animation_width, animation_height, frame[frames - 1]);
+      tft.pushImage(Y_FRAME, X_FRAME, animation_width, animation_height, frame[frames - 1]);
     }
   }
   globalCnt++;
@@ -323,20 +337,19 @@ void loop() {
       tftOffTimer = 0;
       while (digitalRead(BTN1) == LOW) delay(1);
       station++;
-      if (station > (sizeof(stations) / sizeof(Station) - 1)) station = 0;
+      if (station >= (sizeof(stations) / sizeof(Station) - 1)) station = 0;
       fgain = stations[station].gain;
-      draw_status(String(fgain), Y_GAIN);
       streamingForMs = 0;
       tft.setTextSize(1);
       tft.setFreeFont(NULL);
-      tft.fillRect(0, 110, 135, 24, TFT_BLACK);
+      tft.fillRect(0, 110, 135, 16, backGroundColor);
       tft.drawString(stations[station].name, 2, 110, 2);
     }
   }
 
   if (playflag) {
     if ((globalCnt & 0x3f) == 0x3f) {
-      show_play_time();
+      showPlayTime();
     }
     if (mp3->isRunning()) {
       if (playflag) streamingForMs += millis() - lastms;
@@ -345,16 +358,13 @@ void loop() {
     if (!mp3->loop()) {
       mp3->stop();
     }
-    scrollLoop();
+    scrollText();
   }
 
   if (playflag && !tftOff) {
     if (lastTitle != title) {
-      if (title.length() == 0) {
-        title = "No title " + String(stations[station].name);
-      }
+      nextColor();
       lastTitle = title;
-      lcdscroller = title;
     }
   } else {
 #ifdef USE_SERIAL_OUT
@@ -364,7 +374,7 @@ void loop() {
   }
   if (!tftOff && digitalRead(BTN0) == LOW) {
     streamingForMs = 0;
-    show_play_time();
+    showPlayTime();
     tftOffTimer = 0;
     while (digitalRead(BTN0) == LOW) delay(1);
     StopPlaying();
@@ -378,7 +388,7 @@ void loop() {
       fgain = 1.0;
     }
     out->SetGain(fgain * 0.05);
-    draw_status(String(fgain), Y_GAIN);
+    draw_status(String(fgain), 66);
 #ifdef USE_SERIAL_OUT
     Serial.printf("STATUS(Gain) %f \n", fgain * 0.05);
 #endif
@@ -387,7 +397,7 @@ void loop() {
 
 void display(bool on) {
   tftOff = !on;
-  deltaBrightness = on ? 3 : -1;
+  deltaBrightness = on ? 1 : -1;
 }
 
 void do_display_brightness() {
@@ -478,7 +488,6 @@ void MDCallback(void *cbData, const char *type, bool isUnicode, const char *stri
   s2[sizeof(s2) - 1] = 0;
   title = String(s2);
   titleLength = title.length();
-
 #ifdef USE_SERIAL_OUT
   Serial.printf("METADATA(%s) '%s' = '%s'\n", ptr, s1, s2);
   Serial.flush();
@@ -491,7 +500,7 @@ void StatusCallback(void *cbData, int code, const char *string) {
   char s1[64];
   strncpy_P(s1, string, sizeof(s1));
   s1[sizeof(s1) - 1] = 0;
-#ifdef USE_SERIAL_OUT
+#ifdef DEEP_SERIAL_OUT
   Serial.printf("STATUS(%s) '%d' = '%s'\n", ptr, code, s1);
   Serial.flush();
 #endif
