@@ -15,7 +15,7 @@ As this prog runs in MONO (not STEREO) only PIN26 and GND must be connected as C
 
 Sorry, bluetooth speakers currently not supported.
 
-![ttgo_inet](https://github.com/VincentGlueck/vinc_radio_ttgo/assets/139572548/70fc703c-8ced-4e57-9ff1-5638916c10ad)
+![ttgo_inet](https://github.com/VincentGlueck/vinc_radio_ttgo/assets/139572548/439c8ab1-e052-410b-81eb-4332a0f5cb14)
 
 # Limitations
 
