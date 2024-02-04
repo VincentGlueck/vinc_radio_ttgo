@@ -21,8 +21,10 @@ Sorry, bluetooth speakers currently not supported.
 
 * shows dummy volume bar
 * does not measure length of title correct (display issue)
+* for some reasons sprite based time display does not accept round corners, priority -> low
 
 # Credits
 * audio, https://github.com/earlephilhower/ESP8266Audio
 * title scroller inspired by mrdude2478, https://github.com/Bodmer/TFT_eSPI/discussions/1828
 * Volos projects, https://www.youtube.com/@VolosProjects
+* png/jpg -> .c file: http://www.rinkydinkelectronics.com/t_imageconverter565.php (unsecure, but ok)
