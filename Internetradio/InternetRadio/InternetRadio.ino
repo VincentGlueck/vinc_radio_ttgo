@@ -42,7 +42,8 @@ Default PIN layout
 #include "Orbitron_Medium_20.h"
 #include "stations.h"
 //#include "frame.h"
-#include "bg.h"
+//#include "bg_colored.h"
+#include "elder.h"
 #include "colors.h"
 
 #define USE_SERIAL_OUT
@@ -57,7 +58,6 @@ Default PIN layout
 #define CREDITS_DISPLAY      // uncomment to be unkind ;-)
 #define DELAY_START_UP 300
 
-
 /**********************
 * OUTPUT L/R:  PIN26  *
 * MONO !!! ONLY !!!   *
@@ -70,7 +70,7 @@ const char *PASSWORD = "winter01";
 #define Y_STATUS 44
 #define Y_VOLUME 66
 #define Y_TIME 88
-#define Y_SCROLL 220
+#define Y_SCROLL 224
 #define X_FRAME 38
 #define Y_FRAME 134
 
@@ -90,7 +90,7 @@ bool playflag = false;
 int station = 0;
 float fgain = fgain = stations[station].gain;
 String title, lastTitle = "?";
-int titleScroll = 134;
+int titleScroll = 135;
 int globalCnt, frameCnt;
 uint16_t tftOffTimer = 0;
 bool tftOff = false;
@@ -201,7 +201,7 @@ void draw_box(String str, int y, int bgcolor) {
 
 void initialSetup() {
   tft.setTextSize(1);
-  tft.pushImage(0, 0, 135, 240, test_bg);
+  tft.pushImage(0, 0, 135, 240, bg_img);
   tft.setFreeFont(&Orbitron_Medium_20);
   tft.setCursor(2, 20);
   tft.println("vincRadio");
@@ -289,7 +289,7 @@ void scrollText(){
 }
 
 void restoreBg(int y, int height) {
-  tft.pushImage(0, y, 135, height, &test_bg[0]);
+  tft.pushImage(0, y, 135, height, &bg_img[0]);
 }
 
 void loop() {
