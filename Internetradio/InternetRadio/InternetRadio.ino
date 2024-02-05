@@ -41,9 +41,7 @@ Default PIN layout
 #include <spiram-fast.h>
 #include "Orbitron_Medium_20.h"
 #include "stations.h"
-//#include "frame.h"
-//#include "bg_colored.h"
-#include "elder.h"
+#include "beetle.h"
 #include "colors.h"
 
 #define USE_SERIAL_OUT
@@ -272,8 +270,7 @@ void scrollText(){
     array_pos = 0;
   }
   stext.createSprite(TFT_W+fontwidth, 32);
-  //stext.fillRect(0, 0, TFT_W, 32, TFT_BLUE);
-  stext.setTextFont(foreGroundColor);
+    stext.setTextFont(foreGroundColor);
   if (nowMillis - startMillis >= scrolldelay) {
     stext.pushSprite(0, Y_SCROLL);
     stext.scroll(-1);
@@ -481,7 +478,6 @@ void StopPlaying() {
 void MDCallback(void *cbData, const char *type, bool isUnicode, const char *string) {
   const char *ptr = reinterpret_cast<const char *>(cbData);
   (void)isUnicode;
-  // Note that the type and string may be in PROGMEM, so copy them to RAM for printf
   char s1[32], s2[64];
   strncpy_P(s1, type, sizeof(s1));
   s1[sizeof(s1) - 1] = 0;
@@ -497,7 +493,6 @@ void MDCallback(void *cbData, const char *type, bool isUnicode, const char *stri
 
 void StatusCallback(void *cbData, int code, const char *string) {
   const char *ptr = reinterpret_cast<const char *>(cbData);
-  // Note that the string may be in PROGMEM, so copy it to RAM for printf
   char s1[64];
   strncpy_P(s1, string, sizeof(s1));
   s1[sizeof(s1) - 1] = 0;
