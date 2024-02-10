@@ -50,10 +50,10 @@ Default PIN layout
 #define DEEP_SERIAL_OUT
 // this even more
 
-#define BRIGHTNESS 220       // brightness during display = on
-#define TFT_OFF_TIMEOUT 1200 // increase/decrease to tweak power consume (diplay off timer) // defaults to 20
-#define CONNECT_DISPLAY      // uncomment to speed things up at start
-#define CREDITS_DISPLAY      // uncomment to be unkind ;-)
+#define BRIGHTNESS 220        // brightness during display = on
+#define TFT_OFF_TIMEOUT 1200  // increase/decrease to tweak power consume (diplay off timer) // defaults to 20
+#define CONNECT_DISPLAY       // uncomment to speed things up at start
+#define CREDITS_DISPLAY       // uncomment to be unkind ;-)
 #define DELAY_START_UP 300
 
 /**********************
@@ -105,7 +105,7 @@ AudioFileSourceICYStream *file;
 AudioFileSourceBuffer *buf;
 AudioOutputI2S *out;
 TFT_eSPI tft = TFT_eSPI();
-TFT_eSprite stext = TFT_eSprite(&tft); 
+TFT_eSprite stext = TFT_eSprite(&tft);
 TFT_eSprite ttext = TFT_eSprite(&tft);
 
 // scroll
@@ -167,7 +167,7 @@ void setup() {
   initialSetup();
   startMillis = millis();
   stext.setTextWrap(false);  // Don't wrap text to next line
-  stext.setTextSize(2);  // larger letters
+  stext.setTextSize(2);      // larger letters
   ttext.setTextWrap(false);
   ttext.setTextFont(2);
 }
@@ -211,8 +211,7 @@ void drawLabels() {
   tft.setTextColor(foreGroundColor);
   draw_status("Ready", Y_STATUS);
   draw_status(String(fgain), 66);
-  tft.fillRect(0, 110-2, 135, 16+4, backGroundColor);
-  tft.drawString(stations[station].name, 2, 110, 2);
+  showStation();
   draw_box("Status", Y_STATUS, backGroundColor);
   draw_box("Volume", Y_VOLUME, backGroundColor);
   draw_box("Time", Y_TIME, backGroundColor);
@@ -221,7 +220,7 @@ void drawLabels() {
 }
 
 void draw_status(String status, int pos) {
-  tft.fillRoundRect(72, pos-1, 135 - 76, 18, 3, backGroundColor);
+  tft.fillRoundRect(72, pos - 1, 135 - 76, 18, 3, backGroundColor);
   tft.setTextFont(2);
   tft.setTextSize(1);
   tft.setTextColor(foreGroundColor, backGroundColor);
@@ -230,8 +229,8 @@ void draw_status(String status, int pos) {
 
 void showPlayTime() {
   String str = "";
-  ttext.createSprite(tft.width()-74-6, 16);
-  ttext.fillRoundRect(0, 0, tft.width()-74-4, 14, 3, backGroundColor);
+  ttext.createSprite(tft.width() - 74 - 6, 16);
+  ttext.fillRoundRect(0, 0, tft.width() - 74 - 4, 14, 3, backGroundColor);
   if (streamingForMs == 0) {
     str = "--:--";
   } else {
@@ -252,30 +251,21 @@ void showPlayTime() {
   ttext.pushSprite(74, 90);
 }
 
-void nextColor() {
-  color++;
-  if (color >= sizeof(foregroundColors) / sizeof(uint16_t)) color = 0;
-  foreGroundColor = foregroundColors[color];
-  Serial.print("color: " + String(color) + "; value: ");
-  Serial.println(foreGroundColor, HEX);
-  drawLabels();
-}
-
-void scrollText(){
-  uint16_t arraysize = title.length()+1;
+void scrollText() {
+  uint16_t arraysize = title.length() + 1;
   char string_array[arraysize];
   title.toCharArray(string_array, arraysize);
-  
-  if (array_pos >= arraysize){
+
+  if (array_pos >= arraysize) {
     array_pos = 0;
   }
-  stext.createSprite(TFT_W+fontwidth, 32);
-    stext.setTextFont(foreGroundColor);
+  stext.createSprite(TFT_W + fontwidth, 32);
+  stext.setTextFont(foreGroundColor);
   if (nowMillis - startMillis >= scrolldelay) {
     stext.pushSprite(0, Y_SCROLL);
     stext.scroll(-1);
     tcount--;
-    if (tcount <=0) {
+    if (tcount <= 0) {
       char x = string_array[array_pos];
       tcount = fontwidth;
       stext.drawString(String(x), TFT_W, 0, 1);
@@ -286,8 +276,18 @@ void scrollText(){
 }
 
 void restoreBg(int y, int height) {
-  tft.pushImage(0, y, 135, height, &bg_img[0]);
+  tft.pushImage(0, y, tft.width(), height, &bg_img[tft.width()*y]);
 }
+
+void showStation() {
+  tft.setTextSize(1);
+  tft.setTextColor(TFT_WHITE);
+  restoreBg(108, 20);
+  tft.drawRoundRect(0, 109, 135, 19, 3, TFT_RED);
+  tft.drawString(stations[station].name, 4, 110, 2);
+  tft.setTextColor(TFT_WHITE);
+}
+
 
 void loop() {
   nowMillis = millis();
@@ -301,16 +301,7 @@ void loop() {
       display(true);
     }
   }
-/*
-  if (!tftOff && ((globalCnt & 0x3f) != 0x3f)) {
-    if (playflag) {
-      tft.pushImage(X_FRAME, Y_FRAME, animation_width, animation_height, frame[frameCnt++]);
-      if (frameCnt == frames) frameCnt = 0;
-    } else {
-      tft.pushImage(Y_FRAME, X_FRAME, animation_width, animation_height, frame[frames - 1]);
-    }
-  }
-  */
+
   globalCnt++;
   if (!tftOff) {
     if ((globalCnt & 0x1ff) == 0x1ff) {
@@ -338,10 +329,7 @@ void loop() {
       if (station >= (sizeof(stations) / sizeof(Station) - 1)) station = 0;
       fgain = stations[station].gain;
       streamingForMs = 0;
-      tft.setTextSize(1);
-      tft.setFreeFont(NULL);
-      tft.fillRect(0, 110-2, 135, 16+4, backGroundColor);
-      tft.drawString(stations[station].name, 2, 110, 2);
+      showStation();
     }
   }
 
@@ -361,7 +349,6 @@ void loop() {
 
   if (playflag && !tftOff) {
     if (lastTitle != title) {
-      nextColor();
       lastTitle = title;
     }
   } else {
