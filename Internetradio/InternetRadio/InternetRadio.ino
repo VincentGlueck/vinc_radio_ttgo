@@ -64,8 +64,8 @@ Default PIN layout
 
 
 // TODO: enter your WiFi credentials //
-const char *SSID = "***SSID***";
-const char *PASSWORD = "***PW***";
+const char *SSID = "***YOURSSID***";
+const char *PASSWORD = "***YOURPW***";
 
 #define Y_STATUS 44
 #define Y_VOLUME 66
