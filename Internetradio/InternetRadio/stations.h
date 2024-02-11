@@ -4,6 +4,7 @@ struct Station {
   float gain;     // inital gain (1.0f - 15.0f)
 };
 
+// not sure, but streams ending with .m3u do crash device often :-()
 const Station stations[] = {
   {"NDR Enjoy", "http://icecast.ndr.de/ndr/njoy/live/mp3/128/stream.mp3", 10.0f},
   {"Suns LIVE", "http://stream.sunshine-live.de/live/mp3-192", 8.0f},

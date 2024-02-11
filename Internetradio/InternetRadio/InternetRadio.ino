@@ -64,8 +64,8 @@ Default PIN layout
 
 
 // TODO: enter your WiFi credentials //
-const char *SSID = "***YOURSSID***";
-const char *PASSWORD = "***YOURPW***";
+const char *SSID = "VincentVega01";
+const char *PASSWORD = "winter01";
 
 #define Y_STATUS 44
 #define Y_VOLUME 66
@@ -75,8 +75,8 @@ const char *PASSWORD = "***YOURPW***";
 #define Y_FRAME 134
 #define TITLE_DELTA_INITIAL 24
 
-#define MAX_GAIN 15.0f
-#define GAIN_INC_MS 400
+#define MAX_GAIN 20.0f
+#define GAIN_INC_MS 200
 
 
 const int pwmFreq = 5000;
@@ -339,6 +339,7 @@ void loop() {
       streamingForMs = 0;
       lastms = millis();
       titleDeltaY = TITLE_DELTA_INITIAL;
+      title = "";
       StartPlaying();
       playflag = true;
     }
