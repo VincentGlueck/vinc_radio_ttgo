@@ -64,8 +64,8 @@ Default PIN layout
 
 
 // TODO: enter your WiFi credentials //
-const char *SSID = "VincentVega01";
-const char *PASSWORD = "winter01";
+const char *SSID = "***SSID***";
+const char *PASSWORD = "***PW***";
 
 #define Y_STATUS 44
 #define Y_VOLUME 66
@@ -241,12 +241,6 @@ void drawVolume(String status, int pos) {
   float length = 54 * (fgain/MAX_GAIN);
   tft.fillRoundRect(72, pos - 1, 135 - 74, 18, 3, backGroundColor);
   tft.fillRoundRect(76, pos + 3, length, 10, 2, foreGroundColor);
-  /*
-  tft.setTextFont(2);
-  tft.setTextSize(1);
-  tft.setTextColor(foreGroundColor, backGroundColor);
-  tft.drawString(status, 78, pos, 2);
-  */
 }
 
 
