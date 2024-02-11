@@ -38,7 +38,9 @@ Default PIN layout
 #include <spiram-fast.h>
 #include "Orbitron_Medium_20.h"
 #include "stations.h"
-#include "beetle.h"
+#include "bg_cat.h"
+//#include "bg_thunder.h"
+//#include "beetle.h"
 #include "colors.h"
 
 #define USE_SERIAL_OUT
@@ -62,8 +64,8 @@ Default PIN layout
 
 
 // TODO: enter your WiFi credentials //
-const char *SSID = "***SSID****";
-const char *PASSWORD = "***PW****";
+const char *SSID = "VincentVega01";
+const char *PASSWORD = "winter01";
 
 #define Y_STATUS 44
 #define Y_VOLUME 66
@@ -71,9 +73,11 @@ const char *PASSWORD = "***PW****";
 #define Y_SCROLL 224
 #define X_FRAME 38
 #define Y_FRAME 134
+#define TITLE_DELTA_INITIAL 24
 
 #define MAX_GAIN 15.0f
 #define GAIN_INC_MS 400
+
 
 const int pwmFreq = 5000;
 const int pwmResolution = 8;
@@ -120,7 +124,8 @@ unsigned long startMillis;
 uint8_t scrolldelay = 12;
 int tcount;
 String blank;
-const uint8_t fontwidth = 12;
+const uint8_t fontwidth = 16;
+uint8_t titleDeltaY = TITLE_DELTA_INITIAL;
 
 void setup() {
 #ifdef USE_SERIAL_OUT
@@ -233,18 +238,22 @@ void drawStatus(String status, int pos) {
 }
 
 void drawVolume(String status, int pos) {
+  float length = 54 * (fgain/MAX_GAIN);
   tft.fillRoundRect(72, pos - 1, 135 - 74, 18, 3, backGroundColor);
+  tft.fillRoundRect(76, pos + 3, length, 10, 2, foreGroundColor);
+  /*
   tft.setTextFont(2);
   tft.setTextSize(1);
   tft.setTextColor(foreGroundColor, backGroundColor);
   tft.drawString(status, 78, pos, 2);
+  */
 }
 
 
 void showPlayTime() {
   String str = "";
-  timeSprite.createSprite(tft.width() - 74 - 5, 18);
-  timeSprite.fillRoundRect(0, 0, tft.width() - 74 - 5, 18, 3, backGroundColor);
+  timeSprite.createSprite(tft.width() - 74, 18);
+  timeSprite.fillRoundRect(0, 0, tft.width() - 74 - 6, 18, 3, backGroundColor);
   if (streamingForMs == 0) {
     str = "--:--";
   } else {
@@ -275,7 +284,10 @@ void showTitle() {
   }
   titleSprite.createSprite(tft.width() + fontwidth, 26);
   if (nowMillis - startMillis >= scrolldelay) {
-    titleSprite.pushSprite(0, Y_SCROLL-2);
+    titleSprite.pushSprite(0, Y_SCROLL-2 + titleDeltaY);
+    if(titleDeltaY > 0 && ((globalCnt & 0x3) == 0x3)) {
+      titleDeltaY--;
+    }
     titleSprite.scroll(-1);
     tcount--;
     if (tcount <= 0) {
@@ -332,6 +344,7 @@ void loop() {
       drawStatus("Playing", Y_STATUS);
       streamingForMs = 0;
       lastms = millis();
+      titleDeltaY = TITLE_DELTA_INITIAL;
       StartPlaying();
       playflag = true;
     }
@@ -345,7 +358,7 @@ void loop() {
       if (station > (sizeof(stations) / sizeof(Station))-1) station = 0;
       fgain = stations[station].gain;
       out->SetGain(fgain * 0.05);
-      drawStatus(String(fgain), Y_VOLUME);
+      drawVolume(String(fgain), Y_VOLUME);
       streamingForMs = 0;
       showStation();
     }
