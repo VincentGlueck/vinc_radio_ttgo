@@ -17,11 +17,23 @@ Sorry, bluetooth speakers currently not supported.
 
 ![ttgo_radio](https://github.com/VincentGlueck/vinc_radio_ttgo/assets/139572548/7bd122b4-38e4-4f22-b8ac-d5cafff77351)
 
+``bg arts: https://creator.nightcafe.studio/u/Manncy``
+
+# Basic key functions
+
+When paused:
+* right: switch to next station
+* right-long: switch to previous station
+* left: start playback
+
+When playing:
+* right: increase volume
+* right-long: go on with increasing volume
+* left: stop playback
+
 # Limitations
 
-* shows dummy volume bar
-* does not measure length of title correct (display issue)
-* for some reasons sprite based time display does not accept round corners, priority -> low
+* some pixels could be improved, e.g. rounded corners etc.
 
 # Credits
 * audio, https://github.com/earlephilhower/ESP8266Audio
