@@ -39,8 +39,7 @@ Default PIN layout
 #include "Orbitron_Medium_20.h"
 #include "stations.h"
 #include "bg_cat.h"
-//#include "bg_thunder.h"
-//#include "beetle.h"
+#include "TtgoButton.h"
 #include "colors.h"
 
 #define USE_SERIAL_OUT
@@ -76,26 +75,19 @@ const char *PASSWORD = "winter01";
 #define TITLE_DELTA_INITIAL 24
 
 #define MAX_GAIN 20.0f
-#define GAIN_INC_MS 200
-
 
 const int pwmFreq = 5000;
 const int pwmResolution = 8;
 const int pwmLedChannelTFT = 0;
 
-const int BTN0 = 0;  // standard TTGO built-in buttons
-const int BTN1 = 35;
-
 uint8_t color = 0;
 uint16_t foreGroundColor = foregroundColors[color];
 uint16_t backGroundColor = TFT_BLACK;
-bool TestMode = false;
 uint32_t LastTime = 0;
 bool playflag = false;
 int station = 0;
 float fgain = fgain = stations[station].gain;
-long lastGainChangeMs;
-String title, lastTitle = "?";
+String title = "?";
 int titleScroll = 135;
 int globalCnt, frameCnt;
 uint16_t tftOffTimer = 0;
@@ -127,18 +119,108 @@ String blank;
 const uint8_t fontwidth = 16;
 uint8_t titleDeltaY = TITLE_DELTA_INITIAL;
 
+// forwards
+void Display(bool);
+void RestoreBg(int y, int height);
+void ShowPlayTime();
+void DrawStatus(String status, int pos);
+void StopPlaying();
+void StartPlaying();
+void HandleVolumeChange();
+void SwitchStation(int direction);
+void Volume(int direction);
+
+String resultToString(int result) {
+  switch (result) {
+    case RESULT_CLICK: return "click";
+    case RESULT_DOUBLE_CLICK: return "double click";
+    case RESULT_LONG_CLICK: return "long click";
+    default: return "<undef>";
+  }
+}
+
+class ButtonCallback0 : public TtgoCallback {
+public:
+  void onButtonPressed(const int &result) override {
+    switch (result) {
+      case RESULT_CLICK:
+        {
+          if (tftOff) {
+            Display(true);
+          } else if (!playflag) {
+            DrawStatus("Playing", Y_STATUS);
+            streamingForMs = 0;
+            lastms = millis();
+            titleDeltaY = TITLE_DELTA_INITIAL;
+            title = "";
+            StartPlaying();
+            playflag = true;
+          } else {
+            streamingForMs = 0;
+            ShowPlayTime();
+            RestoreBg(tft.height() - 24, 24);
+            StopPlaying();
+            playflag = false;
+          }
+        };
+        break;
+      case RESULT_LONG_CLICK: break;
+      case RESULT_DOUBLE_CLICK: break;
+    }
+    Serial.println("btn ZERO: " + resultToString(result));
+  }
+};
+
+class ButtonCallback1 : public TtgoCallback {
+public:
+  void onButtonPressed(const int &result) override {
+    switch (result) {
+      case RESULT_CLICK:
+        {
+          if (tftOff) {
+            Display(true);
+          } else if (playflag) {
+            Volume(1);
+          } else {
+            SwitchStation(1);
+          }
+        }
+        break;
+      case RESULT_LONG_CLICK:
+        {
+          if (tftOff) {
+            Display(true);
+          } else if (!playflag) {
+            SwitchStation(-1);
+          }
+        }
+        break;
+      case RESULT_DOUBLE_CLICK:
+        {
+          if (playflag) {
+            Volume(-1);
+          }
+        }
+        break;
+    }
+    Serial.println("btn ONE: " + resultToString(result));
+  }
+};
+
+ButtonCallback0 btn0Callback;
+TtgoButton btn0(BTN0, &btn0Callback);
+ButtonCallback1 btn1Callback;
+TtgoButton btn1(BTN1, &btn1Callback);
+
 void setup() {
 #ifdef USE_SERIAL_OUT
   Serial.begin(115200);
   while (!Serial) delay(1);
 #endif
-  pinMode(BTN0, INPUT);
-  pinMode(BTN1, INPUT);
-
   tft.init();
   tft.setRotation(0);
   tft.setSwapBytes(true);
-  display(true);
+  Display(true);
 
   tft.setFreeFont(&Orbitron_Medium_20);
   tft.fillScreen(backGroundColor);
@@ -147,7 +229,7 @@ void setup() {
   tft.println("WIFI");
   tft.drawString(SSID, 1, 44, 2);
 
-  init_wifi();
+  InitWifi();
 #ifdef CONNECT_DISPLAY
   delay(DELAY_START_UP);
 #endif
@@ -164,7 +246,7 @@ void setup() {
 #endif
 
 #ifdef CREDITS_DISPLAY
-  showCredits();
+  ShowCredits();
 #endif
 
   ledcSetup(pwmLedChannelTFT, pwmFreq, pwmResolution);
@@ -182,7 +264,7 @@ void setup() {
   timeSprite.setTextFont(2);
 }
 
-void showCredits() {
+void ShowCredits() {
   tft.setFreeFont(NULL);
   tft.setCursor(0, 20, 2);
   tft.setFreeFont(&Orbitron_Medium_20);
@@ -214,12 +296,12 @@ void initialSetup() {
   tft.setCursor(2, 20);
   tft.println("vincRadio");
   drawLabels();
-  showPlayTime();
+  ShowPlayTime();
 }
 
 void drawLabels() {
   tft.setTextColor(foreGroundColor);
-  drawStatus("Waiting", Y_STATUS);
+  DrawStatus("Waiting", Y_STATUS);
   drawVolume(String(fgain), 66);
   showStation();
   drawBox("Status", Y_STATUS, backGroundColor);
@@ -229,7 +311,7 @@ void drawLabels() {
   tft.setTextSize(2);
 }
 
-void drawStatus(String status, int pos) {
+void DrawStatus(String status, int pos) {
   tft.fillRoundRect(72, pos - 1, 135 - 74, 18, 3, backGroundColor);
   tft.setTextFont(2);
   tft.setTextSize(1);
@@ -238,13 +320,13 @@ void drawStatus(String status, int pos) {
 }
 
 void drawVolume(String status, int pos) {
-  float length = 54 * (fgain/MAX_GAIN);
+  float length = 54 * (fgain / MAX_GAIN);
   tft.fillRoundRect(72, pos - 1, 135 - 74, 18, 3, backGroundColor);
   tft.fillRoundRect(76, pos + 3, length, 10, 2, foreGroundColor);
 }
 
 
-void showPlayTime() {
+void ShowPlayTime() {
   String str = "";
   timeSprite.createSprite(tft.width() - 74, 18);
   timeSprite.fillRoundRect(0, 0, tft.width() - 74 - 6, 18, 3, backGroundColor);
@@ -278,8 +360,8 @@ void showTitle() {
   }
   titleSprite.createSprite(tft.width() + fontwidth, 26);
   if (nowMillis - startMillis >= scrolldelay) {
-    titleSprite.pushSprite(0, Y_SCROLL-2 + titleDeltaY);
-    if(titleDeltaY > 0 && ((globalCnt & 0x3) == 0x3)) {
+    titleSprite.pushSprite(0, Y_SCROLL - 2 + titleDeltaY);
+    if (titleDeltaY > 0 && ((globalCnt & 0x3) == 0x3)) {
       titleDeltaY--;
     }
     titleSprite.scroll(-1);
@@ -296,135 +378,96 @@ void showTitle() {
   }
 }
 
-void restoreBg(int y, int height) {
-  tft.pushImage(0, y, tft.width(), height, &bg_img[tft.width()*y]);
+void RestoreBg(int y, int height) {
+  tft.pushImage(0, y, tft.width(), height, &bg_img[tft.width() * y]);
 }
 
 void showStation() {
-  restoreBg(108, 20);
+  RestoreBg(108, 20);
   tft.setTextColor(foreGroundColor);
   tft.setTextSize(2);
   tft.drawString(stations[station].name, 4, 110, 1);
 }
 
-
-void loop() {
-  nowMillis = millis();
-  if ((globalCnt & 0x1f) == 0x1f) {
-    do_display_brightness();
+void Volume(int direction) {
+  fgain = fgain + (float)direction;
+  if (fgain > MAX_GAIN) {
+    fgain = 1.0;
   }
-  if (tftOff && ((globalCnt & 0x1f) != 0x1f)) {
-    if ((digitalRead(BTN0) == LOW) || (digitalRead(BTN1) == LOW)) {
-      while (((digitalRead(BTN0) == LOW) || (digitalRead(BTN1) == LOW))) delay(1);
-      tftOffTimer = 0;
-      display(true);
-    }
-  }
+  out->SetGain(fgain * 0.05);
+  drawVolume(String(fgain), Y_VOLUME);
+#ifdef USE_SERIAL_OUT
+  Serial.printf("STATUS(Gain) %f \n", fgain * 0.05);
+#endif
+}
 
-  globalCnt++;
+void SwitchStation(int direction) {
+  station = station + direction;
+  if (station < 0) station = (sizeof(stations) / sizeof(Station)) - 1;
+  if (station > (sizeof(stations) / sizeof(Station)) - 1) station = 0;
+  fgain = stations[station].gain;
+  out->SetGain(fgain * 0.05);
+  drawVolume(String(fgain), Y_VOLUME);
+  streamingForMs = 0;
+  showStation();
+}
+
+void HandlePlay() {
+  if ((globalCnt & 0x3f) == 0x3f) {
+    ShowPlayTime();
+  }
+  if (mp3->isRunning()) {
+    if (playflag) streamingForMs += millis() - lastms;
+    lastms = millis();
+  }
+  if (!mp3->loop()) {
+    mp3->stop();
+  }
+  showTitle();
+}
+
+void DisplayOff() {
   if (!tftOff) {
     if ((globalCnt & 0x1ff) == 0x1ff) {
       tftOffTimer++;
       if (tftOffTimer > (TFT_OFF_TIMEOUT << 4)) {
-        display(false);
+        Display(false);
       }
     }
   }
-
-  if (!playflag && !tftOff) {
-    if (digitalRead(BTN0) == LOW) {
-      tftOffTimer = 0;
-      while (digitalRead(BTN0) == LOW) delay(1);
-      drawStatus("Playing", Y_STATUS);
-      streamingForMs = 0;
-      lastms = millis();
-      titleDeltaY = TITLE_DELTA_INITIAL;
-      title = "";
-      StartPlaying();
-      playflag = true;
-    }
-
-    if (digitalRead(BTN1) == LOW) {
-      tftOffTimer = 0;
-      long t0 = millis();
-      while (digitalRead(BTN1) == LOW) delay(1);
-      if((millis() - t0) > LONG_PRESS_MS) station--; else station++;
-      if(station < 0) station = (sizeof(stations) / sizeof(Station))-1;
-      if (station > (sizeof(stations) / sizeof(Station))-1) station = 0;
-      fgain = stations[station].gain;
-      out->SetGain(fgain * 0.05);
-      drawVolume(String(fgain), Y_VOLUME);
-      streamingForMs = 0;
-      showStation();
-    }
-  }
-
-  if (playflag) {
-    if ((globalCnt & 0x3f) == 0x3f) {
-      showPlayTime();
-    }
-    if (mp3->isRunning()) {
-      if (playflag) streamingForMs += millis() - lastms;
-      lastms = millis();
-    }
-    if (!mp3->loop()) {
-      mp3->stop();
-    }
-    showTitle();
-  }
-
-  if (playflag && !tftOff) {
-    if (lastTitle != title) {
-      lastTitle = title;
-    }
-  } else {
-#ifdef USE_SERIAL_OUT
-    // Serial.printf("MP3 done\n");
-#endif
-    streamingForMs = 0;
-  }
-  if (!tftOff && digitalRead(BTN0) == LOW) {
-    streamingForMs = 0;
-    showPlayTime();
-    tftOffTimer = 0;
-    while (digitalRead(BTN0) == LOW) delay(1);
-    restoreBg(tft.height()-24, 24);
-    StopPlaying();
-    playflag = false;
-  }
-  if (!tftOff && digitalRead(BTN1) == LOW && ((millis() - GAIN_INC_MS) > lastGainChangeMs)) {
-    tftOffTimer = 0;
-    lastGainChangeMs = millis();
-    fgain = fgain + 1.0;
-    if (fgain > MAX_GAIN) {
-      fgain = 1.0;
-    }
-    out->SetGain(fgain * 0.05);
-    drawVolume(String(fgain), Y_VOLUME);
-#ifdef USE_SERIAL_OUT
-    Serial.printf("STATUS(Gain) %f \n", fgain * 0.05);
-#endif
-  }
 }
 
-void display(bool on) {
+void loop() {
+  nowMillis = millis();
+  DisplayBrightness();
+  DisplayOff();
+  if (playflag) HandlePlay();
+  btn0.listen();
+  btn1.listen();
+  globalCnt++;
+}
+
+void Display(bool on) {
   tftOff = !on;
   deltaBrightness = on ? 1 : -1;
+  if (on) tftOffTimer = 0;
 }
 
-void do_display_brightness() {
-  tftBrightness += deltaBrightness;
-  if (tftBrightness > BRIGHTNESS) {
-    deltaBrightness = 0;
-    tftBrightness = BRIGHTNESS;
-  } else if (tftBrightness <= 0) {
-    deltaBrightness = 0;
-    tftBrightness = 0;
+void DisplayBrightness() {
+  if ((globalCnt & 0x1f) == 0x1f) {
+    tftBrightness += deltaBrightness;
+    if (tftBrightness > BRIGHTNESS) {
+      deltaBrightness = 0;
+      tftBrightness = BRIGHTNESS;
+    } else if (tftBrightness <= 0) {
+      deltaBrightness = 0;
+      tftBrightness = 0;
+    }
+    ledcWrite(pwmLedChannelTFT, tftBrightness);
   }
-  ledcWrite(pwmLedChannelTFT, tftBrightness);
 }
 
-void init_wifi() {
+void InitWifi() {
   WiFi.disconnect();
   WiFi.softAPdisconnect(true);
   WiFi.mode(WIFI_STA);
@@ -482,7 +525,7 @@ void StopPlaying() {
     delete file;
     file = NULL;
   }
-  drawStatus("Stopped", Y_STATUS);
+  DrawStatus("Stopped", Y_STATUS);
 #ifdef USE_SERIAL_OUT
   Serial.printf("STATUS(Stopped)\n");
   Serial.flush();
@@ -499,7 +542,7 @@ void MDCallback(void *cbData, const char *type, bool isUnicode, const char *stri
   s2[sizeof(s2) - 1] = 0;
   title = String(s2);
   titleLength = title.length();
-  if(titleLength == 0) title = "Wait for title info";
+  if (titleLength == 0) title = "Wait for title info";
 #ifdef USE_SERIAL_OUT
   Serial.printf("METADATA(%s) '%s' = '%s'\n", ptr, s1, s2);
   Serial.flush();
