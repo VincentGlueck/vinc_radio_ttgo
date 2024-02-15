@@ -4,8 +4,8 @@
 #include "Arduino.h"
 
 class TtgoCallback {
-  public:
-    virtual void onButtonPressed(const int& result);
+public:
+  virtual void onButtonPressed(const int& result);
 };
 
 

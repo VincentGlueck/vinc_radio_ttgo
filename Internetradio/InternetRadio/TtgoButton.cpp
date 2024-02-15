@@ -1,7 +1,7 @@
 #include "esp32-hal.h"
 #include "esp32-hal-gpio.h"
 #include "TtgoButton.h"
-#include "Arduino.h" // only for debugging (Serial.print)
+#include "Arduino.h"  // only for debugging (Serial.print)
 
 
 TtgoButton::TtgoButton(int _pin) {
@@ -17,7 +17,8 @@ TtgoButton::TtgoButton(int _pin) {
   result = RESULT_NONE;
 }
 
-TtgoButton::TtgoButton(int _pin, TtgoCallback* _callback) : TtgoButton(_pin) {
+TtgoButton::TtgoButton(int _pin, TtgoCallback* _callback)
+  : TtgoButton(_pin) {
   callback = _callback;
 }
 
@@ -30,7 +31,7 @@ long diffToNow(long timeMs) {
 }
 
 void TtgoButton::listen() {
-  if(result != RESULT_LONG_CLICK) result = RESULT_NONE;
+  if (result != RESULT_LONG_CLICK) result = RESULT_NONE;
   int pinState = digitalRead(pin);
   if (pinState != lastHighLow && diffToNow(lastHighLowChange) < SKIP_GLITTER) {
     return;
@@ -55,22 +56,22 @@ void TtgoButton::listen() {
       resultNotBeforeMillis = millis() + (CLICK_MS >> 1);
       callbackDone = false;
     } else if ((time > DOUBLE_CLICK_MS) && !waitForSingleClick) {
-      if((lastDoubleLowMillis != -1) && (millis() - lastDoubleLowMillis) > DOUBLE_CLICK_MS) {
+      if ((lastDoubleLowMillis != -1) && (millis() - lastDoubleLowMillis) > DOUBLE_CLICK_MS) {
         doubleClickCount++;
       }
       lastDoubleLowMillis = -1;
     }
   } else {
-     lastDoubleLowMillis = millis();
-  lastLowMillis = -1;
-  nextRepeatLongMillis = -1;
-  waitForSingleClick = false;
-  preventSingleClick = false;
-  callbackDone = true;
-  result = RESULT_NONE;
+    lastDoubleLowMillis = millis();
+    lastLowMillis = -1;
+    nextRepeatLongMillis = -1;
+    waitForSingleClick = false;
+    preventSingleClick = false;
+    callbackDone = true;
+    result = RESULT_NONE;
   }
 
-  if(!callbackDone && (doubleClickCount > 1)) {
+  if (!callbackDone && (doubleClickCount > 1)) {
     doubleClickCount = 0;
     callback->onButtonPressed(RESULT_DOUBLE_CLICK);
   }
@@ -80,10 +81,9 @@ void TtgoButton::listen() {
     nextRepeatLongMillis = millis() + LONG_REPEAT_MS;
     callback->onButtonPressed(RESULT_LONG_CLICK);
   }
-  if((millis() > resultNotBeforeMillis) && !callbackDone) { 
+  if ((millis() > resultNotBeforeMillis) && !callbackDone) {
     doubleClickCount = 0;
     callbackDone = true;
     callback->onButtonPressed(RESULT_CLICK);
   }
 }
-

@@ -142,12 +142,14 @@ String resultToString(int result) {
 class ButtonCallback0 : public TtgoCallback {
 public:
   void onButtonPressed(const int &result) override {
+    if (tftOff) {
+      Display(true);
+      return;
+    }
     switch (result) {
       case RESULT_CLICK:
         {
-          if (tftOff) {
-            Display(true);
-          } else if (!playflag) {
+          if (!playflag) {
             DrawStatus("Playing", Y_STATUS);
             streamingForMs = 0;
             lastms = millis();
@@ -174,12 +176,14 @@ public:
 class ButtonCallback1 : public TtgoCallback {
 public:
   void onButtonPressed(const int &result) override {
+    if (tftOff) {
+      Display(true);
+      return;
+    }
     switch (result) {
       case RESULT_CLICK:
         {
-          if (tftOff) {
-            Display(true);
-          } else if (playflag) {
+          if (playflag) {
             Volume(1);
           } else {
             SwitchStation(1);
@@ -188,10 +192,8 @@ public:
         break;
       case RESULT_LONG_CLICK:
         {
-          if (tftOff) {
-            Display(true);
-          } else if (!playflag) {
-            SwitchStation(-1);
+          if (!playflag) {
+            Volume(-1);
           }
         }
         break;
@@ -256,7 +258,7 @@ void setup() {
   out->SetOutputModeMono(true);
   out->SetGain(fgain * 0.05);
 
-  initialSetup();
+  InitialSetup();
   startMillis = millis();
   titleSprite.setTextWrap(false);  // Don't wrap text to next line
   titleSprite.setTextSize(2);      // larger letters
@@ -279,7 +281,7 @@ void ShowCredits() {
   delay(DELAY_START_UP);
 }
 
-void drawBox(String str, int y, int bgcolor) {
+void DrawBox(String str, int y, int bgcolor) {
   tft.setFreeFont(NULL);
   tft.fillRoundRect(2, y - 2, 64, 19, 3, backGroundColor);
   tft.setTextColor(foreGroundColor);
@@ -289,24 +291,24 @@ void drawBox(String str, int y, int bgcolor) {
   tft.setTextColor(foreGroundColor);
 }
 
-void initialSetup() {
+void InitialSetup() {
   tft.setTextSize(1);
   tft.pushImage(0, 0, 135, 240, bg_img);
   tft.setFreeFont(&Orbitron_Medium_20);
   tft.setCursor(2, 20);
   tft.println("vincRadio");
-  drawLabels();
+  DrawLabels();
   ShowPlayTime();
 }
 
-void drawLabels() {
+void DrawLabels() {
   tft.setTextColor(foreGroundColor);
   DrawStatus("Waiting", Y_STATUS);
-  drawVolume(String(fgain), 66);
+  DrawVolume(String(fgain), 66);
   showStation();
-  drawBox("Status", Y_STATUS, backGroundColor);
-  drawBox("Volume", Y_VOLUME, backGroundColor);
-  drawBox("Time", Y_TIME, backGroundColor);
+  DrawBox("Status", Y_STATUS, backGroundColor);
+  DrawBox("Volume", Y_VOLUME, backGroundColor);
+  DrawBox("Time", Y_TIME, backGroundColor);
   tft.setFreeFont(NULL);
   tft.setTextSize(2);
 }
@@ -319,7 +321,7 @@ void DrawStatus(String status, int pos) {
   tft.drawString(status, 78, pos, 2);
 }
 
-void drawVolume(String status, int pos) {
+void DrawVolume(String status, int pos) {
   float length = 54 * (fgain / MAX_GAIN);
   tft.fillRoundRect(72, pos - 1, 135 - 74, 18, 3, backGroundColor);
   tft.fillRoundRect(76, pos + 3, length, 10, 2, foreGroundColor);
@@ -395,7 +397,7 @@ void Volume(int direction) {
     fgain = 1.0;
   }
   out->SetGain(fgain * 0.05);
-  drawVolume(String(fgain), Y_VOLUME);
+  DrawVolume(String(fgain), Y_VOLUME);
 #ifdef USE_SERIAL_OUT
   Serial.printf("STATUS(Gain) %f \n", fgain * 0.05);
 #endif
@@ -407,7 +409,7 @@ void SwitchStation(int direction) {
   if (station > (sizeof(stations) / sizeof(Station)) - 1) station = 0;
   fgain = stations[station].gain;
   out->SetGain(fgain * 0.05);
-  drawVolume(String(fgain), Y_VOLUME);
+  DrawVolume(String(fgain), Y_VOLUME);
   streamingForMs = 0;
   showStation();
 }
