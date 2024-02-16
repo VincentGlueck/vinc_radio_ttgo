@@ -267,7 +267,7 @@ void setup() {
   out = new AudioOutputI2S(0, 1);
   out->SetOutputModeMono(true);
   out->SetGain(fgain * 0.05);
-  initialSetup();
+  drawBasicLabels();
 
   startMillis = millis();
   titleSprite.setTextWrap(false);  // Don't wrap text to next line
@@ -305,7 +305,7 @@ void drawBox(String str, int y, int bgcolor) {
   tft.setTextColor(foreGroundColor);
 }
 
-void initialSetup() {
+void drawBasicLabels() {
   tft.setTextSize(1);
   tft.setFreeFont(&Orbitron_Medium_20);
   tft.setCursor(2, 20);
@@ -549,7 +549,7 @@ void MDCallback(void *cbData, const char *type, bool isUnicode, const char *stri
     bgImage++;
     if(bgImage > 1) bgImage = 0;
     tftBgRow = 0;
-    initialSetup(); // time consuming!
+    drawBasicLabels(); // time consuming!
   }
   lastTitle = title;
   titleLength = title.length();
@@ -572,12 +572,12 @@ void StatusCallback(void *cbData, int code, const char *string) {
 }
 
 void bgRepaint() { // hack to avoid tickering
-  if((globalCnt & 0x3f) == 0x3f) {
+  if((globalCnt & 0x1f) == 0x1f) {
     if(tftBgRow < tft.height()) {
       restoreBg(tftBgRow, 8);
       tftBgRow += 8;
       if(tftBgRow >= tft.height()) {
-        initialSetup();
+        drawBasicLabels();
       }
     }
   }
