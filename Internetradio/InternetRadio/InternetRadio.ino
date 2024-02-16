@@ -38,7 +38,8 @@ Default PIN layout
 #include <spiram-fast.h>
 #include "Orbitron_Medium_20.h"
 #include "stations.h"
-#include "bg_cat.h"
+//#include "bg_cat.h"
+#include "bg_img.h"
 #include "TtgoButton.h"
 #include "colors.h"
 
@@ -47,9 +48,10 @@ Default PIN layout
 // consider going to 115.200baud rate if you need debug infos
 #define BUF_SIZE 0x800         // size of streaming buffer (0x400 -> more decoding errors, 0x1000 -> default)
 #define BRIGHTNESS 220         // brightness during display = on (max 255)
-#define TFT_OFF_TIMEOUT 60000  // display will go off after xyz milliseconds
+#define TFT_OFF_TIMEOUT 360000 // display will go off after xyz milliseconds
 #define CREDITS_display        // uncomment to be unkind ;-)
 #define DELAY_START_UP 1500    // starup credits/slow down
+#define MIN_BG_SWITCH_MS 5000  // background switch on title change not before ms
 //#define USE_STATION_GAIN     // comment in to change volume to default station's volume on station switch
 
 /**********************
@@ -80,11 +82,11 @@ const int pwmLedChannelTFT = 0;
 uint8_t color = 0;
 uint16_t foreGroundColor = foregroundColors[color];
 uint16_t backGroundColor = TFT_BLACK;
-uint32_t LastTime = 0;
 bool playflag = false;
 int station = 0;
 float fgain = fgain = stations[station].gain;
 String title = "?";
+String lastTitle = "";
 int titleScroll = 135;
 int globalCnt, frameCnt;
 long tftOffTimer;
@@ -115,6 +117,9 @@ int tcount;
 String blank;
 const uint8_t fontwidth = 16;
 uint8_t titleDeltaY = TITLE_DELTA_INITIAL;
+uint8_t bgImage = 1;
+long lowestBgChangeTimeMs;
+int tftBgRow = 0;
 
 // forwards
 void display(bool);
@@ -262,14 +267,15 @@ void setup() {
   out = new AudioOutputI2S(0, 1);
   out->SetOutputModeMono(true);
   out->SetGain(fgain * 0.05);
-
   initialSetup();
+
   startMillis = millis();
   titleSprite.setTextWrap(false);  // Don't wrap text to next line
   titleSprite.setTextSize(2);      // larger letters
   timeSprite.setTextWrap(false);
   timeSprite.setTextFont(2);
   tftOffTimer = millis() + TFT_OFF_TIMEOUT;
+  lowestBgChangeTimeMs = millis() + MIN_BG_SWITCH_MS;
 }
 
 void showCredits() {
@@ -301,7 +307,6 @@ void drawBox(String str, int y, int bgcolor) {
 
 void initialSetup() {
   tft.setTextSize(1);
-  tft.pushImage(0, 0, 135, 240, bg_img);
   tft.setFreeFont(&Orbitron_Medium_20);
   tft.setCursor(2, 20);
   tft.println("vincRadio");
@@ -389,7 +394,7 @@ void showTitle() {
 }
 
 void restoreBg(int y, int height) {
-  tft.pushImage(0, y, tft.width(), height, &bg_img[tft.width() * y]);
+  tft.pushImage(0, y, tft.width(), height, &bg_img[bgImage][tft.width() * y]);
 }
 
 void showStation() {
@@ -489,6 +494,7 @@ void initWiFi() {
 }
 
 void startPlaying() {
+  lowestBgChangeTimeMs = millis() + MIN_BG_SWITCH_MS;
   file = new AudioFileSourceICYStream(stations[station].url);
   file->RegisterMetadataCB(MDCallback, (void *)"ICY");
   buf = new AudioFileSourceBuffer(file, BUF_SIZE);
@@ -537,6 +543,15 @@ void MDCallback(void *cbData, const char *type, bool isUnicode, const char *stri
   strncpy_P(s2, string, sizeof(s2));
   s2[sizeof(s2) - 1] = 0;
   title = String(s2);
+
+  if((title != lastTitle) && !tftOff && (millis() > lowestBgChangeTimeMs)) {  
+    lowestBgChangeTimeMs = millis() + MIN_BG_SWITCH_MS;
+    bgImage++;
+    if(bgImage > 1) bgImage = 0;
+    tftBgRow = 0;
+    initialSetup(); // time consuming!
+  }
+  lastTitle = title;
   titleLength = title.length();
   if (titleLength == 0) title = "Wait for title info";
 #ifdef USE_SERIAL_OUT
@@ -556,8 +571,21 @@ void StatusCallback(void *cbData, int code, const char *string) {
 #endif
 }
 
+void bgRepaint() { // hack to avoid tickering
+  if((globalCnt & 0x3f) == 0x3f) {
+    if(tftBgRow < tft.height()) {
+      restoreBg(tftBgRow, 8);
+      tftBgRow += 8;
+      if(tftBgRow >= tft.height()) {
+        initialSetup();
+      }
+    }
+  }
+}
+
 void loop() {
   nowMillis = millis();
+  bgRepaint();
   if (!tftOff && (millis() > tftOffTimer)) display(false);
   displayBrightness();
   if (playflag) handlePlay();
