@@ -1,6 +1,6 @@
 struct Station {
   char name[12];  // longer names will be truncated on screen (you may increase to 24 or whatever, but use smaller font)
-  char url[96];
+  char url[128];
   float gain;  // inital gain (1.0f - 15.0f)
 };
 
@@ -18,7 +18,6 @@ const Station stations[] = {
   { "Eldorado", "http://sender.eldoradio.de:8000/128.mp3", 8.0f },
   { "FluxFM", "http://streams.fluxfm.de/klubradio/mp3-128/audio/", 8.0f },
   { "JamFM", "http://stream.jam.fm/jamfm-live/mp3-128", 8.0f },
-  { "KissFM", "http://topradio-de-hz-fal-stream09-cluster01.radiohost.de/kissfm_128", 8.0f },
   { "Sveriges", "http://sverigesradio.se/topsy/direkt/701-hi-mp3", 8.0f },
   { "Energy SUI", "http://energyzuerich.ice.infomaniak.ch/energyzuerich-high.mp3", 8.0f }
 };

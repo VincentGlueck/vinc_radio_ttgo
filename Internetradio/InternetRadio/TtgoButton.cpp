@@ -3,7 +3,6 @@
 #include "TtgoButton.h"
 #include "Arduino.h"  // only for debugging (Serial.print)
 
-
 TtgoButton::TtgoButton(int _pin) {
   pin = _pin;
   pinMode(pin, INPUT);
@@ -14,24 +13,35 @@ TtgoButton::TtgoButton(int _pin) {
   preventSingleClick = false;
   waitForSingleClick = false;
   callbackDone = true;
+  allowSingleClickMillis = 0;
+  longPressRepeatMillis = LONG_REPEAT_MS;
   result = RESULT_NONE;
 }
 
-TtgoButton::TtgoButton(int _pin, TtgoCallback* _callback)
-  : TtgoButton(_pin) {
+TtgoButton::TtgoButton(int _pin, ButtonCallback* _callback) : TtgoButton(_pin) {
   callback = _callback;
 }
 
-void TtgoButton::registerCallback(TtgoCallback* _callback) {
+void TtgoButton::RegisterCallback(ButtonCallback* _callback) {
   callback = _callback;
+}
+
+void TtgoButton::SetPressedOnHigh(bool high) {
+  pinLevelPressed = high ? HIGH : LOW;
+}
+
+void TtgoButton::SetLongPressRepeatMillis(long millis) {
+  longPressRepeatMillis = millis;
 }
 
 long diffToNow(long timeMs) {
   return millis() - timeMs;
 }
 
-void TtgoButton::listen() {
-  if (result != RESULT_LONG_CLICK) result = RESULT_NONE;
+void TtgoButton::Listen() {
+  if (result != RESULT_LONG_CLICK) {
+     result = RESULT_NONE;
+  }
   int pinState = digitalRead(pin);
   if (pinState != lastHighLow && diffToNow(lastHighLowChange) < SKIP_GLITTER) {
     return;
@@ -39,7 +49,7 @@ void TtgoButton::listen() {
     lastHighLow = pinState;
     lastHighLowChange = millis();
   }
-  if (pinState == LOW) {
+  if (pinState == pinLevelPressed) {
     if (lastLowMillis == -1) {
       lastLowMillis = millis();
       return;
@@ -51,17 +61,23 @@ void TtgoButton::listen() {
       result = RESULT_LONG_CLICK;
       preventSingleClick = true;
       callbackDone = false;
-    } else if ((time > CLICK_MS) && !waitForSingleClick && !preventSingleClick) {
+    } else if ((time > CLICK_MS) && !waitForSingleClick && !preventSingleClick && (millis() > allowSingleClickMillis)) {
       waitForSingleClick = true;
       resultNotBeforeMillis = millis() + (CLICK_MS >> 1);
       callbackDone = false;
     } else if ((time > DOUBLE_CLICK_MS) && !waitForSingleClick) {
       if ((lastDoubleLowMillis != -1) && (millis() - lastDoubleLowMillis) > DOUBLE_CLICK_MS) {
+        allowSingleClickMillis = millis() + DOUBLE_CLICK_MS + (DOUBLE_CLICK_MS >> 2);
         doubleClickCount++;
       }
       lastDoubleLowMillis = -1;
     }
   } else {
+    if ((millis() > resultNotBeforeMillis) && !callbackDone) {
+      doubleClickCount = 0;
+      callbackDone = true;
+      callback->onButtonPressed(pin, RESULT_CLICK);
+    }
     lastDoubleLowMillis = millis();
     lastLowMillis = -1;
     nextRepeatLongMillis = -1;
@@ -73,17 +89,14 @@ void TtgoButton::listen() {
 
   if (!callbackDone && (doubleClickCount > 1)) {
     doubleClickCount = 0;
-    callback->onButtonPressed(RESULT_DOUBLE_CLICK);
+    preventSingleClick = false;
+    allowSingleClickMillis = 0;
+    callback->onButtonPressed(pin, RESULT_DOUBLE_CLICK);
   }
   if ((result == RESULT_LONG_CLICK) && !preventDoubleClick && !callbackDone) {
     preventSingleClick = true;
     callbackDone = true;
-    nextRepeatLongMillis = millis() + LONG_REPEAT_MS;
-    callback->onButtonPressed(RESULT_LONG_CLICK);
-  }
-  if ((millis() > resultNotBeforeMillis) && !callbackDone) {
-    doubleClickCount = 0;
-    callbackDone = true;
-    callback->onButtonPressed(RESULT_CLICK);
+    nextRepeatLongMillis = millis() + longPressRepeatMillis;
+    callback->onButtonPressed(pin, RESULT_LONG_CLICK);
   }
 }
