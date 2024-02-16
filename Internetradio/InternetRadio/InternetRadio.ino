@@ -48,10 +48,12 @@ Default PIN layout
 // consider going to 115.200baud rate if you need debug infos
 #define BUF_SIZE 0x800         // size of streaming buffer (0x400 -> more decoding errors, 0x1000 -> default)
 #define BRIGHTNESS 220         // brightness during display = on (max 255)
-#define TFT_OFF_TIMEOUT 360000 // display will go off after xyz milliseconds
+#define TFT_OFF_TIMEOUT 30000  // display will go off after xyz milliseconds
+#define TFT_ALWAYS_ON          // comment out to activate display off
 #define CREDITS_display        // uncomment to be unkind ;-)
 #define DELAY_START_UP 1500    // starup credits/slow down
 #define MIN_BG_SWITCH_MS 5000  // background switch on title change not before ms
+#define MAX_BG_SAME_MS 45000   // background will force switch after ms
 //#define USE_STATION_GAIN     // comment in to change volume to default station's volume on station switch
 
 /**********************
@@ -59,7 +61,6 @@ Default PIN layout
 * MONO !!! ONLY !!!   *
 * connect GND!!!      *
  *********************/
-
 
 // TODO: enter your WiFi credentials, real one is not too secret, but sometimes I change it to *** shit //
 const char *SSID = "Vi*********1";
@@ -119,6 +120,7 @@ const uint8_t fontwidth = 16;
 uint8_t titleDeltaY = TITLE_DELTA_INITIAL;
 uint8_t bgImage = 1;
 long lowestBgChangeTimeMs;
+long highstBgUnChangeTimeMs;
 int tftBgRow = 0;
 
 // forwards
@@ -248,6 +250,7 @@ void setup() {
   Serial.begin(115200);
   while (!Serial) delay(1);
 #endif
+
   tft.init();
   ledcSetup(pwmLedChannelTFT, pwmFreq, pwmResolution);
   ledcAttachPin(TFT_BL, pwmLedChannelTFT);
@@ -276,6 +279,7 @@ void setup() {
   timeSprite.setTextFont(2);
   tftOffTimer = millis() + TFT_OFF_TIMEOUT;
   lowestBgChangeTimeMs = millis() + MIN_BG_SWITCH_MS;
+  highstBgUnChangeTimeMs = millis() + MAX_BG_SAME_MS;
 }
 
 void showCredits() {
@@ -495,6 +499,7 @@ void initWiFi() {
 
 void startPlaying() {
   lowestBgChangeTimeMs = millis() + MIN_BG_SWITCH_MS;
+  highstBgUnChangeTimeMs = millis() + MAX_BG_SAME_MS;
   file = new AudioFileSourceICYStream(stations[station].url);
   file->RegisterMetadataCB(MDCallback, (void *)"ICY");
   buf = new AudioFileSourceBuffer(file, BUF_SIZE);
@@ -534,6 +539,13 @@ void stopPlaying() {
 #endif
 }
 
+void nextBackground() {
+  bgImage++;
+  if(bgImage >= (sizeof(bg_img) / sizeof(bg_img[0]))) bgImage = 0;
+  tftBgRow = 0;
+  drawBasicLabels();
+}
+
 void MDCallback(void *cbData, const char *type, bool isUnicode, const char *string) {
   const char *ptr = reinterpret_cast<const char *>(cbData);
   (void)isUnicode;
@@ -544,12 +556,11 @@ void MDCallback(void *cbData, const char *type, bool isUnicode, const char *stri
   s2[sizeof(s2) - 1] = 0;
   title = String(s2);
 
-  if((title != lastTitle) && !tftOff && (millis() > lowestBgChangeTimeMs)) {  
+  bool changeBg = (title != lastTitle) && !tftOff && (millis() > lowestBgChangeTimeMs);
+   if(changeBg) {  
     lowestBgChangeTimeMs = millis() + MIN_BG_SWITCH_MS;
-    bgImage++;
-    if(bgImage > 1) bgImage = 0;
-    tftBgRow = 0;
-    drawBasicLabels(); // time consuming!
+    highstBgUnChangeTimeMs = millis() + MAX_BG_SAME_MS;
+    nextBackground();
   }
   lastTitle = title;
   titleLength = title.length();
@@ -572,13 +583,11 @@ void StatusCallback(void *cbData, int code, const char *string) {
 }
 
 void bgRepaint() { // hack to avoid tickering
-  if((globalCnt & 0x1f) == 0x1f) {
-    if(tftBgRow < tft.height()) {
-      restoreBg(tftBgRow, 8);
-      tftBgRow += 8;
-      if(tftBgRow >= tft.height()) {
-        drawBasicLabels();
-      }
+  if(tftBgRow < tft.height()) {
+    restoreBg(tftBgRow, 0x20);
+    tftBgRow += 0x20;
+    if(tftBgRow >= tft.height()) {
+      drawBasicLabels();
     }
   }
 }
@@ -586,7 +595,13 @@ void bgRepaint() { // hack to avoid tickering
 void loop() {
   nowMillis = millis();
   bgRepaint();
+  if (millis() > highstBgUnChangeTimeMs) {
+  highstBgUnChangeTimeMs = millis() + MAX_BG_SAME_MS;
+  nextBackground();
+}
+#ifndef TFT_ALWAYS_ON  
   if (!tftOff && (millis() > tftOffTimer)) display(false);
+#endif  
   displayBrightness();
   if (playflag) handlePlay();
   btn0.Listen();
