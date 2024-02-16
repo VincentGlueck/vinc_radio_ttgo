@@ -46,14 +46,14 @@ Default PIN layout
 #define USE_SERIAL_OUT
 // this will flood the console and slow down things
 // consider going to 115.200baud rate if you need debug infos
-#define BUF_SIZE 0x800         // size of streaming buffer (0x400 -> more decoding errors, 0x1000 -> default)
+#define BUF_SIZE 0xc00         // size of streaming buffer (0x400 -> more decoding errors, 0x1000 -> default)
 #define BRIGHTNESS 220         // brightness during display = on (max 255)
 #define TFT_OFF_TIMEOUT 30000  // display will go off after xyz milliseconds
 #define TFT_ALWAYS_ON          // comment out to activate display off
 #define CREDITS_display        // uncomment to be unkind ;-)
 #define DELAY_START_UP 1500    // starup credits/slow down
 #define MIN_BG_SWITCH_MS 5000  // background switch on title change not before ms
-#define MAX_BG_SAME_MS 45000   // background will force switch after ms
+#define MAX_BG_SAME_MS 25000   // background will force switch after ms
 //#define USE_STATION_GAIN     // comment in to change volume to default station's volume on station switch
 
 /**********************
@@ -63,8 +63,8 @@ Default PIN layout
  *********************/
 
 // TODO: enter your WiFi credentials, real one is not too secret, but sometimes I change it to *** shit //
-const char *SSID = "Vi*********1";
-const char *PASSWORD = "w*****1";
+const char *SSID = "VincentVega01";
+const char *PASSWORD = "winter01";
 
 #define Y_STATUS 44
 #define Y_VOLUME 66
