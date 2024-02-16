@@ -316,7 +316,7 @@ void initialSetup() {
 
 void drawLabels() {
   tft.setTextColor(foreGroundColor);
-  drawStatus("Waiting", Y_STATUS);
+  drawStatus(playflag ? "Playing" : "Waiting", Y_STATUS);
   drawVolumeBar(String(fgain), 66);
   showStation();
   drawBox("Status", Y_STATUS, backGroundColor);
