@@ -61,9 +61,9 @@ Default PIN layout
  *********************/
 
 
-// TODO: enter your WiFi credentials //
-const char *SSID = "VincentVega01";
-const char *PASSWORD = "winter01";
+// TODO: enter your WiFi credentials, real one is not too secret, but sometimes I change it to *** shit //
+const char *SSID = "Vi*********1";
+const char *PASSWORD = "w*****1";
 
 #define Y_STATUS 44
 #define Y_VOLUME 66
