@@ -16,9 +16,11 @@ As this prog runs in MONO (not STEREO) only PIN26 and GND must be connected as C
 Sorry, bluetooth speakers currently not supported.
 
 Currently, main loop() function must(!) at least call
-* ``HandlePlay()``
-* ``btn0.listen()``
-* ``btn1.listen()``
+```
+handlePlay()
+btn0.listen()
+btn1.listen()
+```
   
 Do *not* use any ``delay(x)``!
 
