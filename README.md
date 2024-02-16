@@ -38,17 +38,18 @@ __When paused__:
 __When playing__:
 * right: increase volume
 * right-long: go on with increasing volume
-* right-double: decrease volumne
+* left-long: decrease volume
 * left: stop playback
 
-``Change behaviour by altering classes ButtonCallback0/1 : public TtgoCallback in InternetRadio.ino``
+``Change behaviour by altering class ButtonCallback : public TtgoCallback in InternetRadio.ino``
 
 # Limitations
 
-* TtgoButton lib needs improvements (long press causes single press, too etc.)
+* TtgoButton sometimes fails on double-click/-press
 
 # Credits
 * audio, https://github.com/earlephilhower/ESP8266Audio
 * title scroller inspired by mrdude2478, https://github.com/Bodmer/TFT_eSPI/discussions/1828
 * Volos projects, https://www.youtube.com/@VolosProjects
 * png/jpg -> .c file: http://www.rinkydinkelectronics.com/t_imageconverter565.php (unsecure, but ok)
+* TTGO button handling, https://github.com/VincentGlueck/TTGO_buttons
