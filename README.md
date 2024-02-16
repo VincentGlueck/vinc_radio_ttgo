@@ -7,7 +7,7 @@ https://www.youtube.com/@VolosProjects
 
 German alike, so most of the streams are provided by vendors near by.
 
-_stations.h_
+``stations.h``
 
 Overwrite to meet your needs.
 
@@ -16,9 +16,11 @@ As this prog runs in MONO (not STEREO) only PIN26 and GND must be connected as C
 Sorry, bluetooth speakers currently not supported.
 
 Currently, main loop() function must(!) at least call
-* ``HandlePlay()``
-* ``btn0.listen()``
-* ``btn1.listen()``
+```
+handlePlay()
+btn0.listen()
+btn1.listen()
+```
   
 Do *not* use any ``delay(x)``!
 
@@ -38,17 +40,18 @@ __When paused__:
 __When playing__:
 * right: increase volume
 * right-long: go on with increasing volume
-* right-double: decrease volumne
+* left-long: decrease volume
 * left: stop playback
 
-``Change behaviour by altering classes ButtonCallback0/1 : public TtgoCallback in InternetRadio.ino``
+``Change behaviour by altering class ButtonCallback : public TtgoCallback in InternetRadio.ino``
 
 # Limitations
 
-* TtgoButton lib needs improvements (long press causes single press, too etc.)
+* TtgoButton sometimes fails on double-click/-press
 
 # Credits
 * audio, https://github.com/earlephilhower/ESP8266Audio
 * title scroller inspired by mrdude2478, https://github.com/Bodmer/TFT_eSPI/discussions/1828
 * Volos projects, https://www.youtube.com/@VolosProjects
 * png/jpg -> .c file: http://www.rinkydinkelectronics.com/t_imageconverter565.php (unsecure, but ok)
+* TTGO button handling, https://github.com/VincentGlueck/TTGO_buttons
