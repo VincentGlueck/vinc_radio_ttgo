@@ -13,7 +13,7 @@ Overwrite to meet your needs.
 
 As this prog runs in MONO (not STEREO) only PIN26 and GND must be connected as Cinch/3.5mm output. Voltage/level will fit - quite.
 
-Sorry, bluetooth speakers currently not supported.
+Sorry, bluetooth speakers __not__ supported. This would cause a CPU load, ESP32 can't handle (my guess).
 
 Currently, main loop() function must(!) at least call
 ```
