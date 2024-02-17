@@ -5,7 +5,7 @@ struct Station {
   bool isAAC;
 };
 
-// not sure, but streams ending with .m3u do crash device often :-()
+// streams ending with .m3u do not work, aac = sometimes, 192k mp3 = ?
 const Station stations[] = {
   { "NDR Enjoy", "http://icecast.ndr.de/ndr/njoy/live/mp3/128/stream.mp3", 10.0f, false },
   { "Suns LIVE", "http://stream.sunshine-live.de/live/mp3-192", 8.0f, false },
@@ -18,10 +18,9 @@ const Station stations[] = {
   { "1LIVE", "http://wdr-1live-live.icecast.wdr.de/wdr/1live/live/mp3/128/stream.mp3", 10.0f, false },
   { "VRT Pop", "http://icecast.vrtcdn.be/ra2ant-high.mp3", 8.0f, false },
   { "Danmarks", "http://live-icy.gss.dr.dk:8000/A/A08H.mp3", 8.0f, false },
-  { "bigFM Dance", "http://streams.bigfm.de/bigfm-dance-128-aac?usid=0-0-H-A-D-30", 8.0f, true },
   { "FluxFM", "http://streams.fluxfm.de/klubradio/mp3-128/audio/", 8.0f, false },
   { "JamFM", "http://stream.jam.fm/jamfm-live/mp3-128", 8.0f, false },
   { "Sveriges", "http://sverigesradio.se/topsy/direkt/701-hi-mp3", 8.0f, false },
   { "Energy SUI", "http://energyzuerich.ice.infomaniak.ch/energyzuerich-high.mp3", 8.0f, false },
-  { "BFBS Ger", "http://tx.sharp-stream.com/icecast.php?i=ssvcbfbs5.aac", 8.0f, true }
+  { "BFBS Ger", "http://tx.sharp-stream.com/icecast.php?i=ssvcbfbs5.aac", 8.0f, true } // no title info
 };

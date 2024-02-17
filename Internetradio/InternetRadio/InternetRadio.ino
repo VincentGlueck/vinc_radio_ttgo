@@ -409,7 +409,6 @@ void showStation() {
 }
 
 void showAmpAni() {
-  if(tftOff) return;
   int height = 44;
   ampSprite.createSprite(tft.width(), height);
   ampSprite.setSwapBytes(true);
@@ -429,7 +428,7 @@ void showAmpAni() {
     if(x > (tft.width() >> 1)-16) ddr = 4; else if (x > (tft.width()-48)) ddr = 5;
     ampSprite.drawFastVLine(x + 16, (height >> 1) - r, r << 1, TFT_LIGHTGREY);
     ampSprite.drawFastVLine(x + 17, (height >> 1) - r, r << 1, TFT_LIGHTGREY);
-    x += 3;
+    x += 4;
   }
   ampSprite.pushSprite(0, AMP_ANI_Y);
 }
