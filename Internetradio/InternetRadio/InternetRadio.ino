@@ -29,8 +29,8 @@ Default PIN layout
 #include <AudioFileSource.h>
 #include <AudioFileSourceBuffer.h>
 #include <AudioFileSourceICYStream.h>
-#include <AudioGeneratorTalkie.h>
 #include <AudioGeneratorMP3.h>
+#include <AudioGeneratorAAC.h>
 #include <AudioOutputI2S.h>
 #include <AudioOutputI2SNoDAC.h>
 #include <TFT_eSPI.h>
@@ -38,23 +38,24 @@ Default PIN layout
 #include <spiram-fast.h>
 #include "Orbitron_Medium_20.h"
 #include "stations.h"
-//#include "bg_cat.h"
 #include "bg_img.h"
 #include "TtgoButton.h"
 #include "colors.h"
+#include "time.h"
 
 #define USE_SERIAL_OUT
 // this will flood the console and slow down things
 // consider going to 115.200baud rate if you need debug infos
-#define BUF_SIZE 0xc00         // size of streaming buffer (0x400 -> more decoding errors, 0x1000 -> default)
+#define BUF_SIZE 0x0c00        // size of streaming buffer (0x400 -> more decoding errors, 0x1000 -> default)
 #define BRIGHTNESS 220         // brightness during display = on (max 255)
-#define TFT_OFF_TIMEOUT 30000  // display will go off after xyz milliseconds
-#define TFT_ALWAYS_ON          // comment out to activate display off
+#define TFT_OFF_TIMEOUT 45000  // display will go off after xyz milliseconds
+//#define TFT_ALWAYS_ON        // comment out to activate display off
 #define CREDITS_display        // uncomment to be unkind ;-)
 #define DELAY_START_UP 1500    // starup credits/slow down
 #define MIN_BG_SWITCH_MS 5000  // background switch on title change not before ms
 #define MAX_BG_SAME_MS 25000   // background will force switch after ms
 //#define USE_STATION_GAIN     // comment in to change volume to default station's volume on station switch
+#define AMP_ANI_Y 172
 
 /**********************
 * OUTPUT L/R:  PIN26  *
@@ -99,15 +100,19 @@ uint32_t lastms = 0;
 uint32_t streamingForMs = 0;
 String lastPlayTime = "x";
 
-AudioGeneratorTalkie *talkie;
-AudioGeneratorMP3 *mp3;
+AudioGenerator *decoder = NULL;
 AudioFileSourceICYStream *file;
 AudioFileSourceBuffer *buf;
 AudioOutputI2S *out;
+const int preallocateBufferSize = 0x1000;
+const int preallocateCodecSize = 85332;  // AAC+SBR codec max mem needed
+void *preallocateBuffer = NULL;
+void *preallocateCodec = NULL;
+
 TFT_eSPI tft = TFT_eSPI();
 TFT_eSprite titleSprite = TFT_eSprite(&tft);
 TFT_eSprite timeSprite = TFT_eSprite(&tft);
-TFT_eSprite stationSprite = TFT_eSprite(&tft);
+TFT_eSprite ampSprite = TFT_eSprite(&tft);
 
 // scroll
 uint16_t array_pos = 0;
@@ -126,13 +131,24 @@ int tftBgRow = 0;
 // forwards
 void display(bool);
 void restoreBg(int y, int height);
-void ShowPlayTime();
+void showPlayTime();
 void drawStatus(String status, int pos);
 void stopPlaying();
 void startPlaying();
 void HandleVolumeChange();
 void switchStation(int direction);
 void setVolume(int direction);
+
+uint8_t za, zb, zc, zx, counter;
+
+uint8_t rnd()  // original had: __attribute__((always_inline)); but does not show performance improvement
+{
+  zx++;
+  za = (za ^ zc ^ zx);
+  zb = (zb + za);
+  zc = ((zc + (zb >> 1)) ^ za);
+  return zc;
+}
 
 String resultToString(int result) {
   switch (result) {
@@ -170,46 +186,22 @@ public:
               initTitle();
               startPlaying();
               playflag = true;
-            } else {
-              streamingForMs = 0;
-              ShowPlayTime();
-              restoreBg(tft.height() - 24, 24);
-              stopPlaying();
-              playflag = false;
-            }
+            } else stopPlaying();
           };
           break;
-        case RESULT_LONG_CLICK:
-          {
-            setVolume(-1);
-          }
-          break;
+        case RESULT_LONG_CLICK: setVolume(-1); break;
         case RESULT_DOUBLE_CLICK: break;
       }
     } else {
       switch (result) {
         case RESULT_CLICK:
-          {
-            if (playflag) {
-              setVolume(1);
-            } else {
-              switchStation(1);
-            }
-          }
+          if (playflag) setVolume(1);
+          else switchStation(1);
           break;
-        case RESULT_LONG_CLICK:
-          {
-            setVolume(1);
-          }
-          break;
+        case RESULT_LONG_CLICK: setVolume(1); break;
         case RESULT_DOUBLE_CLICK:
-          {
-            if (playflag) {
-              setVolume(-1);
-            } else {
-              switchStation(-1);
-            }
-          }
+          if (playflag) setVolume(-1);
+          else switchStation(-1);
           break;
       }
     }
@@ -250,7 +242,12 @@ void setup() {
   Serial.begin(115200);
   while (!Serial) delay(1);
 #endif
-
+  preallocateBuffer = malloc(preallocateBufferSize);
+  preallocateCodec = malloc(preallocateCodecSize);
+  if (!preallocateBuffer || !preallocateCodec) {
+    Serial.printf_P(PSTR("FATAL ERROR:  Unable to preallocate %d bytes for app\n"), preallocateBufferSize + preallocateCodecSize);
+    while (1) delay(1000);  // Infinite halt
+  }
   tft.init();
   ledcSetup(pwmLedChannelTFT, pwmFreq, pwmResolution);
   ledcAttachPin(TFT_BL, pwmLedChannelTFT);
@@ -261,7 +258,7 @@ void setup() {
   showConnectStatus("WIFI", SSID);
   initWiFi();
   showConnectStatus("Done", WiFi.localIP().toString());
-  delay(500); // sorry, hard coded, IP might be of interest
+  delay(500);  // sorry, hard coded, IP might be of interest
 
 #ifdef CREDITS_DISPLAY
   showCredits();
@@ -280,6 +277,10 @@ void setup() {
   tftOffTimer = millis() + TFT_OFF_TIMEOUT;
   lowestBgChangeTimeMs = millis() + MIN_BG_SWITCH_MS;
   highstBgUnChangeTimeMs = millis() + MAX_BG_SAME_MS;
+  za = random(256);
+  zb = random(256);
+  zc = random(256);
+  zx = random(256);
 }
 
 void showCredits() {
@@ -315,7 +316,7 @@ void drawBasicLabels() {
   tft.setCursor(2, 20);
   tft.println("vincRadio");
   drawLabels();
-  ShowPlayTime();
+  showPlayTime();
 }
 
 void drawLabels() {
@@ -344,8 +345,7 @@ void drawVolumeBar(String status, int pos) {
   tft.fillRoundRect(76, pos + 3, length, 10, 2, foreGroundColor);
 }
 
-
-void ShowPlayTime() {
+void showPlayTime() {
   String str = "";
   timeSprite.createSprite(tft.width() - 74, 18);
   timeSprite.fillRoundRect(0, 0, tft.width() - 74 - 6, 18, 3, backGroundColor);
@@ -408,6 +408,32 @@ void showStation() {
   tft.drawString(stations[station].name, 4, 110, 1);
 }
 
+void showAmpAni() {
+  if(tftOff) return;
+  int height = 44;
+  ampSprite.createSprite(tft.width(), height);
+  ampSprite.setSwapBytes(true);
+  ampSprite.pushImage(0, 0, tft.width(), height, &bg_img[bgImage][tft.width() * AMP_ANI_Y]);
+  int x = 0;
+  int r = rnd() >> 5;
+  int ddr = 3;
+  int dr;
+  while (x < tft.width() - 32) {
+    dr = (rnd() & 0x7) - ddr;
+    r += dr;
+    if (r > (height >> 1)) {
+      r = height >> 1;
+    } else if (r < 4) {
+      r = 4;
+    }
+    if(x > (tft.width() >> 1)-16) ddr = 4; else if (x > (tft.width()-48)) ddr = 5;
+    ampSprite.drawFastVLine(x + 16, (height >> 1) - r, r << 1, TFT_LIGHTGREY);
+    ampSprite.drawFastVLine(x + 17, (height >> 1) - r, r << 1, TFT_LIGHTGREY);
+    x += 3;
+  }
+  ampSprite.pushSprite(0, AMP_ANI_Y);
+}
+
 void setVolume(int direction) {
   fgain = fgain + (float)direction;
   if (fgain > MAX_GAIN) {
@@ -426,7 +452,6 @@ void switchStation(int direction) {
   if (station > (sizeof(stations) / sizeof(Station)) - 1) station = 0;
 #ifdef USE_STATION_GAIN
   fgain = stations[station].gain;
-  out->SetGain(fgain * 0.05);
   drawVolumeBar(String(fgain), Y_VOLUME);
 #endif
   streamingForMs = 0;
@@ -435,14 +460,15 @@ void switchStation(int direction) {
 
 void handlePlay() {
   if ((globalCnt & 0x3f) == 0x3f) {
-    ShowPlayTime();
+    showPlayTime();
+    if ((globalCnt & 0x1ff) == 0x1ff) showAmpAni();
   }
-  if (mp3->isRunning()) {
+  if (decoder->isRunning()) {
     if (playflag) streamingForMs += millis() - lastms;
     lastms = millis();
   }
-  if (!mp3->loop()) {
-    mp3->stop();
+  if (!decoder->loop()) {
+    decoder->stop();
   }
   showTitle();
 }
@@ -500,6 +526,8 @@ void initWiFi() {
 void startPlaying() {
   lowestBgChangeTimeMs = millis() + MIN_BG_SWITCH_MS;
   highstBgUnChangeTimeMs = millis() + MAX_BG_SAME_MS;
+  decoder = stations[station].isAAC ? (AudioGenerator *)new AudioGeneratorAAC(preallocateCodec, preallocateCodecSize)
+                                    : (AudioGenerator *)new AudioGeneratorMP3(preallocateCodec, preallocateCodecSize);
   file = new AudioFileSourceICYStream(stations[station].url);
   file->RegisterMetadataCB(MDCallback, (void *)"ICY");
   buf = new AudioFileSourceBuffer(file, BUF_SIZE);
@@ -507,9 +535,8 @@ void startPlaying() {
   out = new AudioOutputI2S(0, 1);  // Output to builtInDAC
   out->SetOutputModeMono(true);
   out->SetGain(fgain * 0.05);
-  mp3 = new AudioGeneratorMP3();
-  mp3->RegisterStatusCB(StatusCallback, (void *)"mp3");
-  mp3->begin(buf, out);
+  decoder->RegisterStatusCB(StatusCallback, (void *)"mp3");
+  decoder->begin(buf, out);
 #ifdef USE_SERIAL_OUT
   Serial.printf("STATUS(URL) %s \n", stations[station].url);
   Serial.flush();
@@ -517,10 +544,15 @@ void startPlaying() {
 }
 
 void stopPlaying() {
-  if (mp3) {
-    mp3->stop();
-    delete mp3;
-    mp3 = NULL;
+  restoreBg(AMP_ANI_Y-1, 64);
+  streamingForMs = 0;
+  showPlayTime();
+  restoreBg(tft.height() - 24, 24);
+  playflag = false;
+  if (decoder) {
+    decoder->stop();
+    delete decoder;
+    decoder = NULL;
   }
   if (buf) {
     buf->close();
@@ -541,7 +573,7 @@ void stopPlaying() {
 
 void nextBackground() {
   bgImage++;
-  if(bgImage >= (sizeof(bg_img) / sizeof(bg_img[0]))) bgImage = 0;
+  if (bgImage >= (sizeof(bg_img) / sizeof(bg_img[0]))) bgImage = 0;
   tftBgRow = 0;
   drawBasicLabels();
 }
@@ -557,7 +589,7 @@ void MDCallback(void *cbData, const char *type, bool isUnicode, const char *stri
   title = String(s2);
 
   bool changeBg = (title != lastTitle) && !tftOff && (millis() > lowestBgChangeTimeMs);
-   if(changeBg) {  
+  if (changeBg) {
     lowestBgChangeTimeMs = millis() + MIN_BG_SWITCH_MS;
     highstBgUnChangeTimeMs = millis() + MAX_BG_SAME_MS;
     nextBackground();
@@ -582,11 +614,15 @@ void StatusCallback(void *cbData, int code, const char *string) {
 #endif
 }
 
-void bgRepaint() { // hack to avoid tickering
-  if(tftBgRow < tft.height()) {
-    restoreBg(tftBgRow, 0x20);
-    tftBgRow += 0x20;
-    if(tftBgRow >= tft.height()) {
+void bgRepaint() {  // hack to avoid tickering
+  int step = 0x10;
+  if (tftBgRow < tft.height()) {
+    if ((tftBgRow + step) > tft.height()) {
+      step = tft.height() - tftBgRow;
+    }
+    restoreBg(tftBgRow, step);
+    tftBgRow += step;
+    if (tftBgRow >= tft.height()) {
       drawBasicLabels();
     }
   }
@@ -596,12 +632,12 @@ void loop() {
   nowMillis = millis();
   bgRepaint();
   if (millis() > highstBgUnChangeTimeMs) {
-  highstBgUnChangeTimeMs = millis() + MAX_BG_SAME_MS;
-  nextBackground();
-}
-#ifndef TFT_ALWAYS_ON  
+    highstBgUnChangeTimeMs = millis() + MAX_BG_SAME_MS;
+    nextBackground();
+  }
+#ifndef TFT_ALWAYS_ON
   if (!tftOff && (millis() > tftOffTimer)) display(false);
-#endif  
+#endif
   displayBrightness();
   if (playflag) handlePlay();
   btn0.Listen();
