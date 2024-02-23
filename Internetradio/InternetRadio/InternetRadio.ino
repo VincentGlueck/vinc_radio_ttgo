@@ -90,6 +90,7 @@ bool isStopped = false;
 bool stopRequested = false;
 int station = 0;
 float targetGain = stations[station].gain;
+float lastGain = targetGain;
 float deltaGain = 0.1f;
 float fgain = 0.0f;
 String title = "?";
@@ -203,6 +204,8 @@ public:
           {
             if (!playFlag) {
               initTitle();
+              targetGain = lastGain;
+              deltaGain = 0.1f;
               startPlaying();
             } else {
               targetGain = 0.0f;
@@ -496,6 +499,7 @@ void setVolume(int direction) {
     targetGain = 0.0f;
   }
   fgain = targetGain;
+  lastGain = targetGain;
   out->SetGain(fgain * 0.05);
   drawVolumeBar(String(targetGain), Y_VOLUME);
 #ifdef USE_SERIAL_OUT
@@ -521,10 +525,11 @@ void handlePlay() {
     if ((globalCnt & 0x1ff) == 0x1ff) showAmpAni();
     if(fgain != targetGain) {
       fgain = fgain + deltaGain;
-      if(((fgain > targetGain) && (deltaGain > 0.0f)) || ((fgain < targetGain) && (deltaGain < 0.0f))) {
+      if(((fgain > targetGain) && (deltaGain > 0.05f)) || ((fgain < targetGain) && (deltaGain < 0.05f))) {
         fgain = targetGain;
       }
       out->SetGain(fgain * 0.05);
+      Serial.println("volume now: " + String(fgain));
     }     
   }
   if (decoder->isRunning()) {
@@ -598,9 +603,8 @@ void startPlaying() {
   buf->RegisterStatusCB(StatusCallback, (void *)"buffer");
   out = new AudioOutputI2S(0, 1);  // Output to builtInDAC
   out->SetOutputModeMono(true);
-  fgain = 0.0;
-  // TODO restore last gain used?
-  targetGain = stations[station].gain;
+  fgain = 1.0;
+  targetGain = lastGain;
   deltaGain = 0.1f;
   decoder->RegisterStatusCB(StatusCallback, (void *)"mp3");
   decoder->begin(buf, out);
