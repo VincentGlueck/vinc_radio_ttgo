@@ -43,12 +43,11 @@ void TtgoButton::Listen() {
      result = RESULT_NONE;
   }
   int pinState = digitalRead(pin);
-  if (pinState != lastHighLow && diffToNow(lastHighLowChange) < SKIP_GLITTER) {
+  if (pinState != lastHighLow && diffToNow(lastHighLowChange) < DEBOUNCE) {
     return;
-  } else {
-    lastHighLow = pinState;
-    lastHighLowChange = millis();
   }
+  lastHighLow = pinState;
+  lastHighLowChange = millis();
   if (pinState == pinLevelPressed) {
     if (lastLowMillis == -1) {
       lastLowMillis = millis();

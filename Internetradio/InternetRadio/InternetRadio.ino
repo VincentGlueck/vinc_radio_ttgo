@@ -44,18 +44,19 @@ Default PIN layout
 #include "time.h"
 
 #define USE_SERIAL_OUT
-// this will flood the console and slow down things
+// this will 'flood' the console and slow down things
 // consider going to 115.200baud rate if you need debug infos
 #define BUF_SIZE 0x0c00        // size of streaming buffer (0x400 -> more decoding errors, 0x1000 -> default)
 #define BRIGHTNESS 220         // brightness during display = on (max 255)
 #define TFT_OFF_TIMEOUT 45000  // display will go off after xyz milliseconds
-//#define TFT_ALWAYS_ON        // comment out to activate display off
-#define CREDITS_display        // uncomment to be unkind ;-)
-#define DELAY_START_UP 1500    // starup credits/slow down
+//#define TFT_ALWAYS_ON        // activate display always on
+#define CREDITS_DISPLAY        // uncomment to be unkind ;-)
+#define DELAY_START_UP 750     // starup credits/slow down
 #define MIN_BG_SWITCH_MS 5000  // background switch on title change not before ms
-#define MAX_BG_SAME_MS 25000   // background will force switch after ms
+#define MAX_BG_SAME_MS 300000  // background will force switch after ms
 //#define USE_STATION_GAIN     // comment in to change volume to default station's volume on station switch
-#define AMP_ANI_Y 172
+#define AMP_ANI_Y 172          // position of fake animation
+#define AMP_COLORFUL           // use colorful amp ani
 
 /**********************
 * OUTPUT L/R:  PIN26  *
@@ -63,7 +64,7 @@ Default PIN layout
 * connect GND!!!      *
  *********************/
 
-// TODO: enter your WiFi credentials, real one is not too secret, but sometimes I change it to *** shit //
+// TODO: enter your WiFi credentials, feel free to login ;-)
 const char *SSID = "VincentVega01";
 const char *PASSWORD = "winter01";
 
@@ -84,9 +85,12 @@ const int pwmLedChannelTFT = 0;
 uint8_t color = 0;
 uint16_t foreGroundColor = foregroundColors[color];
 uint16_t backGroundColor = TFT_BLACK;
-bool playflag = false;
+bool playFlag = false;
+bool isStopped = false;
 int station = 0;
-float fgain = fgain = stations[station].gain;
+float targetGain = stations[station].gain;
+float deltaGain = 0.1f;
+float fgain = 0.0f;
 String title = "?";
 String lastTitle = "";
 int titleScroll = 135;
@@ -139,15 +143,29 @@ void HandleVolumeChange();
 void switchStation(int direction);
 void setVolume(int direction);
 
-uint8_t za, zb, zc, zx, counter;
+struct rgb {
+  uint8_t r;
+  uint8_t g;
+  uint8_t b;
+  uint8_t dr;
+  uint8_t dg;
+  uint8_t db;
+};
 
-uint8_t rnd()  // original had: __attribute__((always_inline)); but does not show performance improvement
-{
+uint8_t za, zb, zc, zx, counter;
+rgb amp_colors[((135-32) >> 2) + 1];
+rgb rgb_color;
+
+uint8_t rnd() {
   zx++;
   za = (za ^ zc ^ zx);
   zb = (zb + za);
   zc = ((zc + (zb >> 1)) ^ za);
   return zc;
+}
+
+uint32_t rgb24to565(struct rgb *c) {
+  return ((c->r & 0xf8) << 8) | ((c->g & 0xfc) << 3) | (c->b >> 3);
 }
 
 String resultToString(int result) {
@@ -182,11 +200,14 @@ public:
       switch (result) {
         case RESULT_CLICK:
           {
-            if (!playflag) {
+            if (!playFlag) {
               initTitle();
               startPlaying();
-              playflag = true;
-            } else stopPlaying();
+            } else {
+              targetGain = 0.0f;
+              deltaGain = -0.3f;
+              stopSmooth();
+            }
           };
           break;
         case RESULT_LONG_CLICK: setVolume(-1); break;
@@ -195,12 +216,12 @@ public:
     } else {
       switch (result) {
         case RESULT_CLICK:
-          if (playflag) setVolume(1);
+          if (playFlag) setVolume(1.0f);
           else switchStation(1);
           break;
         case RESULT_LONG_CLICK: setVolume(1); break;
         case RESULT_DOUBLE_CLICK:
-          if (playflag) setVolume(-1);
+          if (playFlag) setVolume(-1);
           else switchStation(-1);
           break;
       }
@@ -258,15 +279,17 @@ void setup() {
   showConnectStatus("WIFI", SSID);
   initWiFi();
   showConnectStatus("Done", WiFi.localIP().toString());
-  delay(500);  // sorry, hard coded, IP might be of interest
+  delay(500);
+  btn0.SetLongPressRepeatMillis(180);
+  btn1.SetLongPressRepeatMillis(180);
 
 #ifdef CREDITS_DISPLAY
   showCredits();
 #endif
 
-  out = new AudioOutputI2S(0, 1);
+  out = new AudioOutputI2S();
   out->SetOutputModeMono(true);
-  out->SetGain(fgain * 0.05);
+//  out->SetGain(fgain * 0.05);
   drawBasicLabels();
 
   startMillis = millis();
@@ -281,6 +304,10 @@ void setup() {
   zb = random(256);
   zc = random(256);
   zx = random(256);
+  rgb_color = { (uint8_t) (160-rnd()>>2), (uint8_t) (160-rnd()>>2), (uint8_t) (160-rnd()>>2), (uint8_t) (rnd()>>6), (uint8_t) (rnd()>>6), (uint8_t) (rnd()>>6) };
+  for(int n=0; n<sizeof(amp_colors)/sizeof(rgb); n++) {
+    amp_colors[n] = rgb_color;
+  }
 }
 
 void showCredits() {
@@ -321,8 +348,8 @@ void drawBasicLabels() {
 
 void drawLabels() {
   tft.setTextColor(foreGroundColor);
-  drawStatus(playflag ? "Playing" : "Waiting", Y_STATUS);
-  drawVolumeBar(String(fgain), 66);
+  drawStatus(playFlag ? "Playing" : "Waiting", Y_STATUS);
+  drawVolumeBar(String(targetGain), 66);
   showStation();
   drawBox("Status", Y_STATUS, backGroundColor);
   drawBox("Volume", Y_VOLUME, backGroundColor);
@@ -340,7 +367,7 @@ void drawStatus(String status, int pos) {
 }
 
 void drawVolumeBar(String status, int pos) {
-  float length = 54 * (fgain / MAX_GAIN);
+  float length = 54 * (targetGain / MAX_GAIN);
   tft.fillRoundRect(72, pos - 1, 135 - 74, 18, 3, backGroundColor);
   tft.fillRoundRect(76, pos + 3, length, 10, 2, foreGroundColor);
 }
@@ -408,6 +435,17 @@ void showStation() {
   tft.drawString(stations[station].name, 4, 110, 1);
 }
 
+void alterColors(uint8_t *col, uint8_t *delta) {
+  (*col) += (*delta);
+  if((*col) < 128) {
+    (*col) = 128;
+    (*delta) = (rnd() >> 5) + 1;
+  } else if ((*col) > 224) {
+    (*col) = 224;
+    (*delta) = -((rnd() >> 5) + 1) ;
+  }
+}
+
 void showAmpAni() {
   int height = 44;
   ampSprite.createSprite(tft.width(), height);
@@ -417,7 +455,17 @@ void showAmpAni() {
   int r = rnd() >> 5;
   int ddr = 3;
   int dr;
-  while (x < tft.width() - 32) {
+#ifdef AMP_COLORFUL
+  for(int n=sizeof(amp_colors)/sizeof(rgb)-2; n>=0; n--) {
+    amp_colors[n] = amp_colors[n+1];
+  }
+  alterColors(&rgb_color.r, &rgb_color.dr);
+  alterColors(&rgb_color.g, &rgb_color.dg);
+  alterColors(&rgb_color.b, &rgb_color.db);
+  amp_colors[sizeof(amp_colors)/sizeof(rgb)-1] = rgb_color;
+#endif
+  int col = 0;
+  while (x < tft.width() - 32 && (col < (sizeof(amp_colors)/sizeof(rgb)))) {
     dr = (rnd() & 0x7) - ddr;
     r += dr;
     if (r > (height >> 1)) {
@@ -426,22 +474,31 @@ void showAmpAni() {
       r = 4;
     }
     if(x > (tft.width() >> 1)-16) ddr = 4; else if (x > (tft.width()-48)) ddr = 5;
+#ifdef AMP_COLORFUL
+    uint32_t col32 = rgb24to565(&amp_colors[col]);     
+    ampSprite.drawFastVLine(x + 16, (height >> 1) - r, r << 1, col32);
+    ampSprite.drawFastVLine(x + 17, (height >> 1) - r, r << 1, col32);
+#else
     ampSprite.drawFastVLine(x + 16, (height >> 1) - r, r << 1, TFT_LIGHTGREY);
     ampSprite.drawFastVLine(x + 17, (height >> 1) - r, r << 1, TFT_LIGHTGREY);
+#endif
     x += 4;
   }
   ampSprite.pushSprite(0, AMP_ANI_Y);
 }
 
 void setVolume(int direction) {
-  fgain = fgain + (float)direction;
-  if (fgain > MAX_GAIN) {
-    fgain = 1.0;
+  targetGain = targetGain + (float)direction;
+  if (targetGain > MAX_GAIN) {
+    targetGain = MAX_GAIN;
+  } else if (targetGain < 0.0f) {
+    targetGain = 0.0f;
   }
+  fgain = targetGain;
   out->SetGain(fgain * 0.05);
-  drawVolumeBar(String(fgain), Y_VOLUME);
+  drawVolumeBar(String(targetGain), Y_VOLUME);
 #ifdef USE_SERIAL_OUT
-  Serial.printf("STATUS(Gain) %f \n", fgain * 0.05);
+  Serial.printf("STATUS(Gain) %f \n", targetGain * 0.05);
 #endif
 }
 
@@ -450,20 +507,27 @@ void switchStation(int direction) {
   if (station < 0) station = (sizeof(stations) / sizeof(Station)) - 1;
   if (station > (sizeof(stations) / sizeof(Station)) - 1) station = 0;
 #ifdef USE_STATION_GAIN
-  fgain = stations[station].gain;
-  drawVolumeBar(String(fgain), Y_VOLUME);
+  targetGain = stations[station].gain;
+  drawVolumeBar(String(targetGain), Y_VOLUME);
 #endif
   streamingForMs = 0;
   showStation();
 }
 
 void handlePlay() {
-  if ((globalCnt & 0x3f) == 0x3f) {
+  if ((globalCnt & 0x7f) == 0x7f) {
     showPlayTime();
     if ((globalCnt & 0x1ff) == 0x1ff) showAmpAni();
+    if(fgain != targetGain) {
+      fgain = fgain + deltaGain;
+      if(((fgain > targetGain) && (deltaGain > 0.0f)) || ((fgain < targetGain) && (deltaGain < 0.0f))) {
+        fgain = targetGain;
+      }
+      out->SetGain(fgain * 0.05);
+    }     
   }
   if (decoder->isRunning()) {
-    if (playflag) streamingForMs += millis() - lastms;
+    if (playFlag) streamingForMs += (millis() - lastms);
     lastms = millis();
   }
   if (!decoder->loop()) {
@@ -533,13 +597,29 @@ void startPlaying() {
   buf->RegisterStatusCB(StatusCallback, (void *)"buffer");
   out = new AudioOutputI2S(0, 1);  // Output to builtInDAC
   out->SetOutputModeMono(true);
-  out->SetGain(fgain * 0.05);
+  fgain = 0.0;
+  // TODO restore last gain used?
+  targetGain = stations[station].gain;
+  deltaGain = 0.1f;
   decoder->RegisterStatusCB(StatusCallback, (void *)"mp3");
   decoder->begin(buf, out);
+  isStopped = false;
+  playFlag = true;
 #ifdef USE_SERIAL_OUT
   Serial.printf("STATUS(URL) %s \n", stations[station].url);
   Serial.flush();
 #endif
+}
+
+void stopSmooth() {
+  if(!isStopped) {
+    handlePlay();
+    if(fgain <= 0.0f) {
+      stopPlaying();
+      isStopped = true;
+      playFlag = false;
+    }
+  }
 }
 
 void stopPlaying() {
@@ -547,7 +627,6 @@ void stopPlaying() {
   streamingForMs = 0;
   showPlayTime();
   restoreBg(tft.height() - 24, 24);
-  playflag = false;
   if (decoder) {
     decoder->stop();
     delete decoder;
@@ -563,10 +642,11 @@ void stopPlaying() {
     delete file;
     file = NULL;
   }
+  playFlag = false;
   drawStatus("Stopped", Y_STATUS);
 #ifdef USE_SERIAL_OUT
-  Serial.printf("STATUS(Stopped)\n");
-  Serial.flush();
+    Serial.printf("STATUS(Stopped)\n");
+    Serial.flush();
 #endif
 }
 
@@ -638,7 +718,7 @@ void loop() {
   if (!tftOff && (millis() > tftOffTimer)) display(false);
 #endif
   displayBrightness();
-  if (playflag) handlePlay();
+  if (playFlag) handlePlay();
   btn0.Listen();
   btn1.Listen();
   globalCnt++;
