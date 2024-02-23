@@ -87,6 +87,7 @@ uint16_t foreGroundColor = foregroundColors[color];
 uint16_t backGroundColor = TFT_BLACK;
 bool playFlag = false;
 bool isStopped = false;
+bool stopRequested = false;
 int station = 0;
 float targetGain = stations[station].gain;
 float deltaGain = 0.1f;
@@ -205,8 +206,8 @@ public:
               startPlaying();
             } else {
               targetGain = 0.0f;
-              deltaGain = -0.3f;
-              stopSmooth();
+              deltaGain = -0.1f;
+              stopRequested = true;
             }
           };
           break;
@@ -614,10 +615,9 @@ void startPlaying() {
 void stopSmooth() {
   if(!isStopped) {
     handlePlay();
-    if(fgain <= 0.0f) {
+    if(fgain <= 0.5f) {
       stopPlaying();
       isStopped = true;
-      playFlag = false;
     }
   }
 }
@@ -718,7 +718,7 @@ void loop() {
   if (!tftOff && (millis() > tftOffTimer)) display(false);
 #endif
   displayBrightness();
-  if (playFlag) handlePlay();
+  if(stopRequested) stopSmooth(); else if (playFlag) handlePlay();
   btn0.Listen();
   btn1.Listen();
   globalCnt++;
