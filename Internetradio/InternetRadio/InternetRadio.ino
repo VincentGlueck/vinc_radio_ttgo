@@ -25,6 +25,7 @@ Default PIN layout
 #error "Requires ESP32, TTGO TFT display (135x240 pixels)"
 #endif
 
+#include <Preferences.h>
 #include <WiFi.h>
 #include <AudioFileSource.h>
 #include <AudioFileSourceBuffer.h>
@@ -69,6 +70,7 @@ Default PIN layout
 // TODO: enter your WiFi credentials, feel free to login ;-)
 const char *SSID = "*****ssid*****";
 const char *PASSWORD = "****pw****";
+const char *PREF_NAMESPACE = "vtgor";
 
 #define Y_STATUS 44
 #define Y_VOLUME 66
@@ -135,6 +137,8 @@ uint8_t bgImage = 1;
 long lowestBgChangeTimeMs;
 long highstBgUnChangeTimeMs;
 int tftBgRow = 0;
+
+Preferences preferences;
 
 // forwards
 void display(bool);
@@ -286,6 +290,7 @@ void setup() {
   initWiFi();
   showConnectStatus("Done", WiFi.localIP().toString());
   delay(500);
+  readPreferences();
   btn0.SetLongPressRepeatMillis(180);
   btn1.SetLongPressRepeatMillis(180);
 
@@ -313,6 +318,21 @@ void setup() {
   for(int n=0; n<sizeof(amp_colors)/sizeof(rgb); n++) {
     amp_colors[n] = rgb_color;
   }
+}
+
+void writePreferences() {
+  preferences.begin(PREF_NAMESPACE, false); 
+  preferences.putInt("station", station);
+  preferences.putFloat("gain", targetGain);
+  preferences.end();
+}
+
+void readPreferences() {
+  preferences.begin(PREF_NAMESPACE, true); 
+  station = preferences.getInt("station");
+  targetGain = preferences.getFloat("gain");
+  lastGain = targetGain;
+  preferences.end();
 }
 
 void showCredits() {
@@ -501,6 +521,7 @@ void setVolume(int direction) {
   fgain = targetGain;
   lastGain = targetGain;
   if(out) out->SetGain(fgain * 0.05);
+  writePreferences();
   drawVolumeBar(String(targetGain), Y_VOLUME);
 #ifdef USE_SERIAL_OUT
   Serial.printf("STATUS(Gain) %f \n", targetGain * 0.05);
@@ -511,6 +532,7 @@ void switchStation(int direction) {
   station = station + direction;
   if (station < 0) station = (sizeof(stations) / sizeof(Station)) - 1;
   if (station > (sizeof(stations) / sizeof(Station)) - 1) station = 0;
+  writePreferences();
 #ifdef USE_STATION_GAIN
   targetGain = stations[station].gain;
   drawVolumeBar(String(targetGain), Y_VOLUME);
