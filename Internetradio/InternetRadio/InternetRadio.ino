@@ -47,6 +47,7 @@ Default PIN layout
 // this will 'flood' the console and slow down things
 // consider going to 115.200baud rate if you need debug infos
 #define BUF_SIZE 0x0c00        // size of streaming buffer (0x400 -> more decoding errors, 0x1000 -> default)
+#define USE_STEREO true        // stereo (Pin25,26) or mono (Pin26 only) on most TTGOs
 #define BRIGHTNESS 220         // brightness during display = on (max 255)
 #define TFT_OFF_TIMEOUT 45000  // display will go off after xyz milliseconds
 //#define TFT_ALWAYS_ON        // activate display always on
@@ -58,15 +59,16 @@ Default PIN layout
 #define AMP_ANI_Y 172          // position of fake animation
 #define AMP_COLORFUL           // use colorful amp ani
 
-/**********************
-* OUTPUT L/R:  PIN26  *
-* MONO !!! ONLY !!!   *
-* connect GND!!!      *
- *********************/
+/************************
+* OUTPUT PIN26, PIN 25  *
+* (stereo, 'mono': 26)  *
+* MONO !!! ONLY !!!     *
+* connect GND!!!        *
+ ***********************/
 
 // TODO: enter your WiFi credentials, feel free to login ;-)
-const char *SSID = "VincentVega01";
-const char *PASSWORD = "winter01";
+const char *SSID = "*****ssid*****";
+const char *PASSWORD = "***pw***";
 
 #define Y_STATUS 44
 #define Y_VOLUME 66
@@ -107,7 +109,7 @@ uint32_t streamingForMs = 0;
 String lastPlayTime = "x";
 
 AudioGenerator *decoder = NULL;
-AudioFileSourceICYStream *file;
+AudioFileSourceICYStream *stream;
 AudioFileSourceBuffer *buf;
 AudioOutputI2S *out;
 const int preallocateBufferSize = 0x1000;
@@ -209,7 +211,7 @@ public:
               startPlaying();
             } else {
               targetGain = 0.0f;
-              deltaGain = -0.1f;
+              deltaGain = -0.25f;
               stopRequested = true;
             }
           };
@@ -383,14 +385,15 @@ void showPlayTime() {
   if (streamingForMs == 0) {
     str = "--:--";
   } else {
-    uint32_t t = streamingForMs >> 10;
-    uint8_t hour = t / 3600;
+    uint32_t t = streamingForMs / 1000;
+    uint8_t sec = t % 60;
+    uint8_t min = (t / 60) % 60;
+    uint8_t hour = (t / 3600) % 24;
     if (hour > 0) {
       str += (String(hour)) + ":";
     }
-    str += String(t / 60) + ":";
-    uint8_t sec = t % 60;
-    str += (sec < 10 ? "0" : "") + String(sec);
+    str += (min < 10 ? "0" : "") + String(min);
+    str += (sec < 10 ? ":0" : ":") + String(sec);
     if (str != lastPlayTime) {
       lastPlayTime = str;
     }
@@ -520,7 +523,7 @@ void switchStation(int direction) {
 }
 
 void handlePlay() {
-  if ((globalCnt & 0x7f) == 0x7f) {
+  if ((globalCnt & 0x1ff) == 0x1ff) {
     showPlayTime();
     if ((globalCnt & 0x1ff) == 0x1ff) showAmpAni();
     if(fgain != targetGain) {
@@ -529,7 +532,6 @@ void handlePlay() {
         fgain = targetGain;
       }
       out->SetGain(fgain * 0.05);
-      Serial.println("volume now: " + String(fgain));
     }     
   }
   if (decoder->isRunning()) {
@@ -597,12 +599,12 @@ void startPlaying() {
   highstBgUnChangeTimeMs = millis() + MAX_BG_SAME_MS;
   decoder = stations[station].isAAC ? (AudioGenerator *)new AudioGeneratorAAC(preallocateCodec, preallocateCodecSize)
                                     : (AudioGenerator *)new AudioGeneratorMP3(preallocateCodec, preallocateCodecSize);
-  file = new AudioFileSourceICYStream(stations[station].url);
-  file->RegisterMetadataCB(MDCallback, (void *)"ICY");
-  buf = new AudioFileSourceBuffer(file, BUF_SIZE);
+  stream = new AudioFileSourceICYStream(stations[station].url);
+  stream->RegisterMetadataCB(MDCallback, (void *)"ICY");
+  buf = new AudioFileSourceBuffer(stream, BUF_SIZE);
   buf->RegisterStatusCB(StatusCallback, (void *)"buffer");
-  out = new AudioOutputI2S(0, 1);  // Output to builtInDAC
-  out->SetOutputModeMono(true);
+  out = new AudioOutputI2S(0, 1);
+  out->SetOutputModeMono(!USE_STEREO); // set to true if you don't need stereo
   fgain = 1.0;
   targetGain = lastGain;
   deltaGain = 0.1f;
@@ -641,10 +643,10 @@ void stopPlaying() {
     delete buf;
     buf = NULL;
   }
-  if (file) {
-    file->close();
-    delete file;
-    file = NULL;
+  if (stream) {
+    stream->close();
+    delete stream;
+    stream = NULL;
   }
   playFlag = false;
   drawStatus("Stopped", Y_STATUS);
