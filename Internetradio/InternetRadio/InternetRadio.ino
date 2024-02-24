@@ -59,6 +59,7 @@ Default PIN layout
 //#define USE_STATION_GAIN     // comment in to change volume to default station's volume on station switch
 #define AMP_ANI_Y 172          // position of fake animation
 #define AMP_COLORFUL           // use colorful amp ani
+#define RESTORE_BG_RAND_LINES  // change background with animation, comment out to use top-down mode
 
 /************************
 * OUTPUT PIN26, PIN 25  *
@@ -216,7 +217,7 @@ public:
               startPlaying();
             } else {
               targetGain = 0.0f;
-              deltaGain = -0.25f;
+              deltaGain = -0.35f;
               stopRequested = true;
             }
           };
@@ -676,8 +677,9 @@ void stopPlaying() {
 #endif
 }
 
-void createRandomRowOrder() {
+void createBgRestoreOrder() {
   for(int n=0; n<sizeof(bgRowOrder); n++) bgRowOrder[n] = n;
+#ifdef RESTORE_BG_RAND_LINES  
   for(int n=0; n<(sizeof(bgRowOrder) >> 1); n++) {
     uint8_t first = rnd() >> 3;
     uint8_t second = rnd() >> 3;
@@ -685,6 +687,7 @@ void createRandomRowOrder() {
     bgRowOrder[first] = bgRowOrder[second];
     bgRowOrder[second] = swap;
   }
+#endif  
 }
 
 void nextBackground() {
@@ -729,11 +732,11 @@ void StatusCallback(void *cbData, int code, const char *string) {
 #endif
 }
 
-void bgRepaint() {  // hack to avoid tickering
+void bgRepaint() {  // hack to avoid tickering, will use random line order if RESTORE_BG_RAND_LINES is defined
   if((globalCnt & 0x3f) != 0x3f) return;
   if(tftBgRow > sizeof(bgRowOrder) || tftBgRow < 0) return;
   if(tftBgRow == 0) {
-    createRandomRowOrder();
+    createBgRestoreOrder();
   }
   int row = bgRowOrder[tftBgRow];
   restoreBg(row*7, 7);
