@@ -50,12 +50,12 @@ Default PIN layout
 #define BUF_SIZE 0x0c00        // size of streaming buffer (0x400 -> more decoding errors, 0x1000 -> default)
 #define USE_STEREO true        // stereo (Pin25,26) or mono (Pin26 only) on most TTGOs
 #define BRIGHTNESS 220         // brightness during display = on (max 255)
-#define TFT_OFF_TIMEOUT 45000  // display will go off after xyz milliseconds
-//#define TFT_ALWAYS_ON        // activate display always on
+#define TFT_OFF_TIMEOUT 99999  // display will go off after xyz milliseconds
+#define TFT_ALWAYS_ON          // activate display always on, otherwise TFT_OFF_TIMEOUT millis will smoothly turn of display
 #define CREDITS_DISPLAY        // uncomment to be unkind ;-)
 #define DELAY_START_UP 750     // starup credits/slow down
-#define MIN_BG_SWITCH_MS 5000  // background switch on title change not before ms
-#define MAX_BG_SAME_MS 35000   // background will force switch after ms
+#define MIN_BG_SWITCH_MS 2000  // background switch on title change not before ms
+#define MAX_BG_SAME_MS 12000   // background will force switch after ms
 //#define USE_STATION_GAIN     // comment in to change volume to default station's volume on station switch
 #define AMP_ANI_Y 172          // position of fake animation
 #define AMP_COLORFUL           // use colorful amp ani
@@ -137,6 +137,7 @@ uint8_t bgImage = 1;
 long lowestBgChangeTimeMs;
 long highstBgUnChangeTimeMs;
 int tftBgRow = 0;
+uint8_t bgRowOrder[31];
 
 Preferences preferences;
 
@@ -675,11 +676,21 @@ void stopPlaying() {
 #endif
 }
 
+void createRandomRowOrder() {
+  for(int n=0; n<sizeof(bgRowOrder); n++) bgRowOrder[n] = n;
+  for(int n=0; n<(sizeof(bgRowOrder) >> 1); n++) {
+    uint8_t first = rnd() >> 3;
+    uint8_t second = rnd() >> 3;
+    uint8_t swap = bgRowOrder[first];
+    bgRowOrder[first] = bgRowOrder[second];
+    bgRowOrder[second] = swap;
+  }
+}
+
 void nextBackground() {
   bgImage++;
   if (bgImage >= (sizeof(bg_img) / sizeof(bg_img[0]))) bgImage = 0;
   tftBgRow = 0;
-  drawBasicLabels();
 }
 
 void MDCallback(void *cbData, const char *type, bool isUnicode, const char *string) {
@@ -719,16 +730,16 @@ void StatusCallback(void *cbData, int code, const char *string) {
 }
 
 void bgRepaint() {  // hack to avoid tickering
-  int step = 0x18;
-  if (tftBgRow < tft.height()) {
-    if ((tftBgRow + step) > tft.height()) {
-      step = tft.height() - tftBgRow;
-    }
-    restoreBg(tftBgRow, step);
-    tftBgRow += step;
-    if (tftBgRow >= tft.height()) {
-      drawBasicLabels();
-    }
+  if((globalCnt & 0x3f) != 0x3f) return;
+  if(tftBgRow > sizeof(bgRowOrder) || tftBgRow < 0) return;
+  if(tftBgRow == 0) {
+    createRandomRowOrder();
+  }
+  int row = bgRowOrder[tftBgRow];
+  restoreBg(row*7, 7);
+  tftBgRow++;
+  if(tftBgRow >= sizeof(bgRowOrder)) {
+    drawBasicLabels();
   }
 }
 
