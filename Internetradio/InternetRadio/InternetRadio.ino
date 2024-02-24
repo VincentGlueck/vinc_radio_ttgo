@@ -68,7 +68,7 @@ Default PIN layout
 
 // TODO: enter your WiFi credentials, feel free to login ;-)
 const char *SSID = "*****ssid*****";
-const char *PASSWORD = "***pw***";
+const char *PASSWORD = "****pw****";
 
 #define Y_STATUS 44
 #define Y_VOLUME 66
@@ -143,7 +143,6 @@ void showPlayTime();
 void drawStatus(String status, int pos);
 void stopPlaying();
 void startPlaying();
-void HandleVolumeChange();
 void switchStation(int direction);
 void setVolume(int direction);
 
@@ -292,12 +291,11 @@ void setup() {
 #ifdef CREDITS_DISPLAY
   showCredits();
 #endif
-
-  out = new AudioOutputI2S();
-  out->SetOutputModeMono(true);
-//  out->SetGain(fgain * 0.05);
+  switchStation(0);
+  if(targetGain == 0.0f) {
+    targetGain = 10.0f;
+  }
   drawBasicLabels();
-
   startMillis = millis();
   titleSprite.setTextWrap(false);  // Don't wrap text to next line
   titleSprite.setTextSize(2);      // larger letters
@@ -310,7 +308,7 @@ void setup() {
   zb = random(256);
   zc = random(256);
   zx = random(256);
-  rgb_color = { (uint8_t) (160-rnd()>>2), (uint8_t) (160-rnd()>>2), (uint8_t) (160-rnd()>>2), (uint8_t) (rnd()>>6), (uint8_t) (rnd()>>6), (uint8_t) (rnd()>>6) };
+  rgb_color = { (uint8_t) (120-(rnd()>>2)), (uint8_t) (130-(rnd()>>2)), (uint8_t) (100-(rnd()>>2)), (uint8_t) (rnd()>>5), (uint8_t) (rnd()>>6), (uint8_t) (rnd()>>4) };
   for(int n=0; n<sizeof(amp_colors)/sizeof(rgb); n++) {
     amp_colors[n] = rgb_color;
   }
@@ -466,9 +464,7 @@ void showAmpAni() {
   for(int n=sizeof(amp_colors)/sizeof(rgb)-2; n>=0; n--) {
     amp_colors[n] = amp_colors[n+1];
   }
-  alterColors(&rgb_color.r, &rgb_color.dr);
-  alterColors(&rgb_color.g, &rgb_color.dg);
-  alterColors(&rgb_color.b, &rgb_color.db);
+  rgb_color = { (uint8_t) (120-(rnd()>>2)), (uint8_t) (130-(rnd()>>2)), (uint8_t) (100-(rnd()>>2)), (uint8_t) (rnd()>>5), (uint8_t) (rnd()>>6), (uint8_t) (rnd()>>4) };
   amp_colors[sizeof(amp_colors)/sizeof(rgb)-1] = rgb_color;
 #endif
   int col = 0;
@@ -503,7 +499,7 @@ void setVolume(int direction) {
   }
   fgain = targetGain;
   lastGain = targetGain;
-  out->SetGain(fgain * 0.05);
+  if(out) out->SetGain(fgain * 0.05);
   drawVolumeBar(String(targetGain), Y_VOLUME);
 #ifdef USE_SERIAL_OUT
   Serial.printf("STATUS(Gain) %f \n", targetGain * 0.05);
