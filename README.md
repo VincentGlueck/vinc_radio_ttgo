@@ -11,7 +11,8 @@ German alike, so most of the streams are provided by vendors near by.
 
 Overwrite to meet your needs.
 
-As this prog runs in MONO (not STEREO) only PIN26 and GND must be connected as Cinch/3.5mm output. Voltage/level will fit - quite.
+Connect at least PIN26 and GND as Cinch/3.5mm output (you may use stereo which is the default, 2nd channel: Pin 25).
+No further resistors __needed__ but feel free to optimize sound. Do not ask which one is left or right - don't know...
 
 Sorry, bluetooth speakers __not__ supported. This would cause a CPU load, ESP32 can't handle (my guess).
 
