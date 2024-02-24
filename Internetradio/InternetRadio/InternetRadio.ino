@@ -54,7 +54,7 @@ Default PIN layout
 #define CREDITS_DISPLAY        // uncomment to be unkind ;-)
 #define DELAY_START_UP 750     // starup credits/slow down
 #define MIN_BG_SWITCH_MS 5000  // background switch on title change not before ms
-#define MAX_BG_SAME_MS 300000  // background will force switch after ms
+#define MAX_BG_SAME_MS 35000   // background will force switch after ms
 //#define USE_STATION_GAIN     // comment in to change volume to default station's volume on station switch
 #define AMP_ANI_Y 172          // position of fake animation
 #define AMP_COLORFUL           // use colorful amp ani
@@ -206,6 +206,7 @@ public:
             if (!playFlag) {
               initTitle();
               targetGain = lastGain;
+              if(targetGain < 1.0f) targetGain = 1.0f;
               deltaGain = 0.1f;
               startPlaying();
             } else {
@@ -617,7 +618,7 @@ void startPlaying() {
 void stopSmooth() {
   if(!isStopped) {
     handlePlay();
-    if(fgain <= 0.5f) {
+    if(fgain <= 0.2f) {
       stopPlaying();
       isStopped = true;
     }
@@ -696,7 +697,7 @@ void StatusCallback(void *cbData, int code, const char *string) {
 }
 
 void bgRepaint() {  // hack to avoid tickering
-  int step = 0x10;
+  int step = 0x18;
   if (tftBgRow < tft.height()) {
     if ((tftBgRow + step) > tft.height()) {
       step = tft.height() - tftBgRow;
