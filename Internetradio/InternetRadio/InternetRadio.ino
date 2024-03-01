@@ -44,9 +44,7 @@ Default PIN layout
 #include "colors.h"
 #include "time.h"
 
-#define USE_SERIAL_OUT
-// this will 'flood' the console and slow down things
-// consider going to 115.200baud rate if you need debug infos
+#define USE_SERIAL_OUT           // this will output some status messages to the console and slow down things (use 115.200 or above)
 #define BUF_SIZE 0x0c00          // size of streaming buffer (0x400 -> more decoding errors, 0x1000 -> default)
 #define USE_STEREO true          // stereo (Pin25,26) or mono (Pin26 only) on most TTGOs
 #define BRIGHTNESS 220           // brightness during display = on (max 255)
@@ -60,6 +58,7 @@ Default PIN layout
 #define AMP_ANI_Y 170            // position of fake animation
 #define AMP_COLORFUL             // use colorful amp ani
 //#define RESTORE_BG_RAND_LINES  // change background with animation, comment out to use top-down mode
+#define SWITCH_BG_WHEN_PAUSED    // comment out to ensure same background when not playing
 
 /************************
 * OUTPUT PIN26, PIN 25  *
@@ -782,7 +781,10 @@ void loop() {
   bgRepaint();
   if (millis() > highstBgUnChangeTimeMs) {
     highstBgUnChangeTimeMs = millis() + MAX_BG_SAME_MS;
-    if (playFlag) nextBackground();
+#ifndef SWITCH_BG_WHEN_PAUSED    
+    if (playFlag)
+#endif    
+    nextBackground();
   }
 #ifndef TFT_ALWAYS_ON
   if (!tftOff && (millis() > tftOffTimer)) display(false);
