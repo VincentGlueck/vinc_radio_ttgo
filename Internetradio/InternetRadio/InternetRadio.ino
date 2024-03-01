@@ -47,19 +47,19 @@ Default PIN layout
 #define USE_SERIAL_OUT
 // this will 'flood' the console and slow down things
 // consider going to 115.200baud rate if you need debug infos
-#define BUF_SIZE 0x0c00        // size of streaming buffer (0x400 -> more decoding errors, 0x1000 -> default)
-#define USE_STEREO true        // stereo (Pin25,26) or mono (Pin26 only) on most TTGOs
-#define BRIGHTNESS 220         // brightness during display = on (max 255)
-#define TFT_OFF_TIMEOUT 99999  // display will go off after xyz milliseconds
-#define TFT_ALWAYS_ON          // activate display always on, otherwise TFT_OFF_TIMEOUT millis will smoothly turn of display
-#define CREDITS_DISPLAY        // uncomment to be unkind ;-)
-#define DELAY_START_UP 750     // starup credits/slow down
-#define MIN_BG_SWITCH_MS 2000  // background switch on title change not before ms
-#define MAX_BG_SAME_MS 12000   // background will force switch after ms
-//#define USE_STATION_GAIN     // comment in to change volume to default station's volume on station switch
-#define AMP_ANI_Y 172          // position of fake animation
-#define AMP_COLORFUL           // use colorful amp ani
-#define RESTORE_BG_RAND_LINES  // change background with animation, comment out to use top-down mode
+#define BUF_SIZE 0x0c00          // size of streaming buffer (0x400 -> more decoding errors, 0x1000 -> default)
+#define USE_STEREO true          // stereo (Pin25,26) or mono (Pin26 only) on most TTGOs
+#define BRIGHTNESS 220           // brightness during display = on (max 255)
+#define TFT_OFF_TIMEOUT 45000    // display will go off after xyz milliseconds
+#define TFT_ALWAYS_ON            // activate display always on, otherwise TFT_OFF_TIMEOUT millis will smoothly turn of display
+#define CREDITS_DISPLAY          // uncomment to be unkind ;-)
+#define DELAY_START_UP 600       // starup credits/slow down
+#define MIN_BG_SWITCH_MS 5000    // background switch on title change not before ms
+#define MAX_BG_SAME_MS 30000     // background will force switch after ms
+//#define USE_STATION_GAIN       // comment in to change volume to default station's volume on station switch
+#define AMP_ANI_Y 170            // position of fake animation
+#define AMP_COLORFUL             // use colorful amp ani
+//#define RESTORE_BG_RAND_LINES  // change background with animation, comment out to use top-down mode
 
 /************************
 * OUTPUT PIN26, PIN 25  *
@@ -68,14 +68,17 @@ Default PIN layout
 * connect GND!!!        *
  ***********************/
 
-// TODO: enter your WiFi credentials, feel free to login ;-)
+// TODO: enter your WiFi credentials
 const char *SSID = "*****ssid*****";
 const char *PASSWORD = "****pw****";
+//==================================
+
 const char *PREF_NAMESPACE = "vtgor";
 
 #define Y_STATUS 44
 #define Y_VOLUME 66
 #define Y_TIME 88
+#define Y_STATION 110
 #define Y_SCROLL 224
 #define X_FRAME 38
 #define Y_FRAME 134
@@ -124,6 +127,7 @@ TFT_eSPI tft = TFT_eSPI();
 TFT_eSprite titleSprite = TFT_eSprite(&tft);
 TFT_eSprite timeSprite = TFT_eSprite(&tft);
 TFT_eSprite ampSprite = TFT_eSprite(&tft);
+TFT_eSprite stationSprite = TFT_eSprite(&tft);
 
 // scroll
 uint16_t array_pos = 0;
@@ -138,7 +142,12 @@ uint8_t bgImage = 1;
 long lowestBgChangeTimeMs;
 long highstBgUnChangeTimeMs;
 int tftBgRow = 0;
-uint8_t bgRowOrder[31];
+#ifdef RESTORE_BG_RAND_LINES
+uint8_t bgRowOrder[60];
+#else
+uint8_t bgRowOrder[10];
+#endif
+int rowFactor;
 
 Preferences preferences;
 
@@ -162,7 +171,7 @@ struct rgb {
 };
 
 uint8_t za, zb, zc, zx, counter;
-rgb amp_colors[((135-32) >> 2) + 1];
+rgb amp_colors[((135 - 32) >> 2) + 1];
 rgb rgb_color;
 
 uint8_t rnd() {
@@ -212,7 +221,7 @@ public:
             if (!playFlag) {
               initTitle();
               targetGain = lastGain;
-              if(targetGain < 1.0f) targetGain = 1.0f;
+              if (targetGain < 1.0f) targetGain = 1.0f;
               deltaGain = 0.1f;
               startPlaying();
             } else {
@@ -295,18 +304,18 @@ void setup() {
   readPreferences();
   btn0.SetLongPressRepeatMillis(180);
   btn1.SetLongPressRepeatMillis(180);
-
+  rowFactor = tft.height() / sizeof(bgRowOrder);
 #ifdef CREDITS_DISPLAY
   showCredits();
 #endif
   switchStation(0);
-  if(targetGain == 0.0f) {
+  if (targetGain == 0.0f) {
     targetGain = 10.0f;
   }
   drawBasicLabels();
   startMillis = millis();
-  titleSprite.setTextWrap(false);  // Don't wrap text to next line
-  titleSprite.setTextSize(2);      // larger letters
+  titleSprite.setTextWrap(false);
+  titleSprite.setTextSize(2);
   timeSprite.setTextWrap(false);
   timeSprite.setTextFont(2);
   tftOffTimer = millis() + TFT_OFF_TIMEOUT;
@@ -316,21 +325,21 @@ void setup() {
   zb = random(256);
   zc = random(256);
   zx = random(256);
-  rgb_color = { (uint8_t) (120-(rnd()>>2)), (uint8_t) (130-(rnd()>>2)), (uint8_t) (100-(rnd()>>2)), (uint8_t) (rnd()>>5), (uint8_t) (rnd()>>6), (uint8_t) (rnd()>>4) };
-  for(int n=0; n<sizeof(amp_colors)/sizeof(rgb); n++) {
+  rgb_color = { (uint8_t)(120 - (rnd() >> 2)), (uint8_t)(130 - (rnd() >> 2)), (uint8_t)(100 - (rnd() >> 2)), (uint8_t)(rnd() >> 5), (uint8_t)(rnd() >> 6), (uint8_t)(rnd() >> 4) };
+  for (int n = 0; n < sizeof(amp_colors) / sizeof(rgb); n++) {
     amp_colors[n] = rgb_color;
   }
 }
 
 void writePreferences() {
-  preferences.begin(PREF_NAMESPACE, false); 
+  preferences.begin(PREF_NAMESPACE, false);
   preferences.putInt("station", station);
   preferences.putFloat("gain", targetGain);
   preferences.end();
 }
 
 void readPreferences() {
-  preferences.begin(PREF_NAMESPACE, true); 
+  preferences.begin(PREF_NAMESPACE, true);
   station = preferences.getInt("station");
   targetGain = preferences.getFloat("gain");
   lastGain = targetGain;
@@ -367,7 +376,7 @@ void drawBox(String str, int y, int bgcolor) {
 void drawBasicLabels() {
   tft.setTextSize(1);
   tft.setFreeFont(&Orbitron_Medium_20);
-  tft.setCursor(2, 20);
+  tft.setCursor(7, 20);
   tft.println("vincRadio");
   drawLabels();
   showPlayTime();
@@ -428,7 +437,6 @@ void showTitle() {
   uint16_t arraysize = title.length() + 1;
   char string_array[arraysize];
   title.toCharArray(string_array, arraysize);
-
   if (array_pos >= arraysize) {
     array_pos = 0;
   }
@@ -452,25 +460,44 @@ void showTitle() {
   }
 }
 
+void darkenBg(int y, int height) {
+  stationSprite.createSprite(tft.width(), height);
+  rgb c;
+  int sRow = 0;
+  int idx = tft.width() * y;
+  for(int row=0; row<height; row++) {
+    for(int col=0; col<tft.width(); col++) {
+      unsigned short val = bg_img[bgImage][idx + col];
+      c.r = (((val & 0xf800) >> 11) << 3) >> 1;
+      c.g = (((val & 0x07e0) >> 5) << 2) >> 1;
+      c.b = (((val & 0x1f)) << 3) >> 1;
+      idx++;
+      stationSprite.drawPixel(col, sRow, rgb24to565(&c));
+    }
+    sRow++;
+  }
+  stationSprite.pushSprite(0, y);
+}
+
 void restoreBg(int y, int height) {
   tft.pushImage(0, y, tft.width(), height, &bg_img[bgImage][tft.width() * y]);
 }
 
 void showStation() {
-  restoreBg(108, 20);
+  darkenBg(Y_STATION, 23);
   tft.setTextColor(foreGroundColor);
   tft.setTextSize(2);
-  tft.drawString(stations[station].name, 4, 110, 1);
+  tft.drawCentreString(stations[station].name, tft.width()>>1, Y_STATION+4, 1);
 }
 
 void alterColors(uint8_t *col, uint8_t *delta) {
   (*col) += (*delta);
-  if((*col) < 128) {
+  if ((*col) < 128) {
     (*col) = 128;
     (*delta) = (rnd() >> 5) + 1;
   } else if ((*col) > 224) {
     (*col) = 224;
-    (*delta) = -((rnd() >> 5) + 1) ;
+    (*delta) = -((rnd() >> 5) + 1);
   }
 }
 
@@ -484,14 +511,14 @@ void showAmpAni() {
   int ddr = 3;
   int dr;
 #ifdef AMP_COLORFUL
-  for(int n=sizeof(amp_colors)/sizeof(rgb)-2; n>=0; n--) {
-    amp_colors[n] = amp_colors[n+1];
+  for (int n = sizeof(amp_colors) / sizeof(rgb) - 2; n >= 0; n--) {
+    amp_colors[n] = amp_colors[n + 1];
   }
-  rgb_color = { (uint8_t) (120-(rnd()>>2)), (uint8_t) (130-(rnd()>>2)), (uint8_t) (100-(rnd()>>2)), (uint8_t) (rnd()>>5), (uint8_t) (rnd()>>6), (uint8_t) (rnd()>>4) };
-  amp_colors[sizeof(amp_colors)/sizeof(rgb)-1] = rgb_color;
+  rgb_color = { (uint8_t)(140 - (rnd() >> 2)), (uint8_t)(160 - (rnd() >> 2)), (uint8_t)(170 - (rnd() >> 2)), (uint8_t)(rnd() >> 5), (uint8_t)(rnd() >> 6), (uint8_t)(rnd() >> 4) };
+  amp_colors[sizeof(amp_colors) / sizeof(rgb) - 1] = rgb_color;
 #endif
   int col = 0;
-  while (x < tft.width() - 32 && (col < (sizeof(amp_colors)/sizeof(rgb)))) {
+  while (x < tft.width() - 32 && (col < (sizeof(amp_colors) / sizeof(rgb)))) {
     dr = (rnd() & 0x7) - ddr;
     r += dr;
     if (r > (height >> 1)) {
@@ -499,14 +526,15 @@ void showAmpAni() {
     } else if (r < 4) {
       r = 4;
     }
-    if(x > (tft.width() >> 1)-16) ddr = 4; else if (x > (tft.width()-48)) ddr = 5;
+    if (x > (tft.width() >> 1) - 16) ddr = 4;
+    else if (x > (tft.width() - 48)) ddr = 5;
 #ifdef AMP_COLORFUL
-    uint32_t col32 = rgb24to565(&amp_colors[col]);     
+    uint32_t col32 = rgb24to565(&amp_colors[col]);
     ampSprite.drawFastVLine(x + 16, (height >> 1) - r, r << 1, col32);
-    ampSprite.drawFastVLine(x + 17, (height >> 1) - r, r << 1, col32);
+    ampSprite.drawFastVLine(x + 18, (height >> 1) - r, r << 1, col32);
 #else
     ampSprite.drawFastVLine(x + 16, (height >> 1) - r, r << 1, TFT_LIGHTGREY);
-    ampSprite.drawFastVLine(x + 17, (height >> 1) - r, r << 1, TFT_LIGHTGREY);
+    ampSprite.drawFastVLine(x + 18, (height >> 1) - r, r << 1, TFT_LIGHTGREY);
 #endif
     x += 4;
   }
@@ -522,7 +550,7 @@ void setVolume(int direction) {
   }
   fgain = targetGain;
   lastGain = targetGain;
-  if(out) out->SetGain(fgain * 0.05);
+  if (out) out->SetGain(fgain * 0.05);
   writePreferences();
   drawVolumeBar(String(targetGain), Y_VOLUME);
 #ifdef USE_SERIAL_OUT
@@ -547,13 +575,13 @@ void handlePlay() {
   if ((globalCnt & 0x1ff) == 0x1ff) {
     showPlayTime();
     if ((globalCnt & 0x1ff) == 0x1ff) showAmpAni();
-    if(fgain != targetGain) {
+    if (fgain != targetGain) {
       fgain = fgain + deltaGain;
-      if(((fgain > targetGain) && (deltaGain > 0.05f)) || ((fgain < targetGain) && (deltaGain < 0.05f))) {
+      if (((fgain > targetGain) && (deltaGain > 0.05f)) || ((fgain < targetGain) && (deltaGain < 0.05f))) {
         fgain = targetGain;
       }
       out->SetGain(fgain * 0.05);
-    }     
+    }
   }
   if (decoder->isRunning()) {
     if (playFlag) streamingForMs += (millis() - lastms);
@@ -605,7 +633,8 @@ void initWiFi() {
     i = i + 1;
     if (i > 100) {
 #ifdef USE_SERIAL_OUT
-      Serial.println("Unable to connect");
+      Serial.println("Unable to connect; w/o WiFi this won't work, sorry.");
+      i = 0;
       // SSID / PW correct?
 #endif
     }
@@ -625,7 +654,7 @@ void startPlaying() {
   buf = new AudioFileSourceBuffer(stream, BUF_SIZE);
   buf->RegisterStatusCB(StatusCallback, (void *)"buffer");
   out = new AudioOutputI2S(0, 1);
-  out->SetOutputModeMono(!USE_STEREO); // set to true if you don't need stereo
+  out->SetOutputModeMono(!USE_STEREO);  // set to true if you don't need stereo
   fgain = 1.0;
   targetGain = lastGain;
   deltaGain = 0.1f;
@@ -640,9 +669,9 @@ void startPlaying() {
 }
 
 void stopSmooth() {
-  if(!isStopped) {
+  if (!isStopped) {
     handlePlay();
-    if(fgain <= 0.2f) {
+    if (fgain <= 0.2f) {
       stopPlaying();
       isStopped = true;
     }
@@ -650,7 +679,7 @@ void stopSmooth() {
 }
 
 void stopPlaying() {
-  restoreBg(AMP_ANI_Y-1, 64);
+  restoreBg(AMP_ANI_Y - 1, 64);
   streamingForMs = 0;
   showPlayTime();
   restoreBg(tft.height() - 24, 24);
@@ -672,22 +701,38 @@ void stopPlaying() {
   playFlag = false;
   drawStatus("Stopped", Y_STATUS);
 #ifdef USE_SERIAL_OUT
-    Serial.printf("STATUS(Stopped)\n");
-    Serial.flush();
+  Serial.printf("STATUS(Stopped)\n");
+  Serial.flush();
 #endif
 }
 
+void bgRepaint() {  // hack to avoid sound ticks, will use random line order if RESTORE_BG_RAND_LINES is defined
+#ifdef RESTORE_BG_RAND_LINES
+  if ((globalCnt & 0x7f) != 0x7f) return;
+#else
+  if ((globalCnt & 0x3f) != 0x3f) return;
+#endif
+  if (tftBgRow > sizeof(bgRowOrder) || tftBgRow < 0) return;
+  if (tftBgRow == 0) createBgRestoreOrder();
+  int row = bgRowOrder[tftBgRow];
+  restoreBg(row * rowFactor, rowFactor);
+  tftBgRow++;
+  if (tftBgRow >= sizeof(bgRowOrder)) drawBasicLabels();
+}
+
 void createBgRestoreOrder() {
-  for(int n=0; n<sizeof(bgRowOrder); n++) bgRowOrder[n] = n;
-#ifdef RESTORE_BG_RAND_LINES  
-  for(int n=0; n<(sizeof(bgRowOrder) >> 1); n++) {
-    uint8_t first = rnd() >> 3;
-    uint8_t second = rnd() >> 3;
+  for (int n = 0; n < sizeof(bgRowOrder); n++) bgRowOrder[n] = n;
+#ifdef RESTORE_BG_RAND_LINES
+  for (int n = 0; n < (sizeof(bgRowOrder) >> 1); n++) {
+    uint8_t first = rnd() >> 2;
+    if (first >= sizeof(bgRowOrder)) first -= sizeof(bgRowOrder);
+    uint8_t second = rnd() >> 2;
+    if (second >= sizeof(bgRowOrder)) second -= sizeof(bgRowOrder);
     uint8_t swap = bgRowOrder[first];
     bgRowOrder[first] = bgRowOrder[second];
     bgRowOrder[second] = swap;
   }
-#endif  
+#endif
 }
 
 void nextBackground() {
@@ -732,32 +777,19 @@ void StatusCallback(void *cbData, int code, const char *string) {
 #endif
 }
 
-void bgRepaint() {  // hack to avoid tickering, will use random line order if RESTORE_BG_RAND_LINES is defined
-  if((globalCnt & 0x3f) != 0x3f) return;
-  if(tftBgRow > sizeof(bgRowOrder) || tftBgRow < 0) return;
-  if(tftBgRow == 0) {
-    createBgRestoreOrder();
-  }
-  int row = bgRowOrder[tftBgRow];
-  restoreBg(row*7, 7);
-  tftBgRow++;
-  if(tftBgRow >= sizeof(bgRowOrder)) {
-    drawBasicLabels();
-  }
-}
-
 void loop() {
   nowMillis = millis();
   bgRepaint();
   if (millis() > highstBgUnChangeTimeMs) {
     highstBgUnChangeTimeMs = millis() + MAX_BG_SAME_MS;
-    nextBackground();
+    if (playFlag) nextBackground();
   }
 #ifndef TFT_ALWAYS_ON
   if (!tftOff && (millis() > tftOffTimer)) display(false);
 #endif
   displayBrightness();
-  if(stopRequested) stopSmooth(); else if (playFlag) handlePlay();
+  if (stopRequested) stopSmooth();
+  else if (playFlag) handlePlay();
   btn0.Listen();
   btn1.Listen();
   globalCnt++;

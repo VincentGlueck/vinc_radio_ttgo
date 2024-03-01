@@ -5,7 +5,7 @@ struct Station {
   bool isAAC;
 };
 
-// streams ending with .m3u do not work, aac = sometimes, 192k mp3 = ?
+// streams ending with .m3u do not work, aac = sometimes
 const Station stations[] = {
   { "NDR Enjoy", "http://icecast.ndr.de/ndr/njoy/live/mp3/128/stream.mp3", 10.0f, false },
   { "FluxFM", "http://streams.fluxfm.de/klubradio/mp3-128/audio/", 8.0f, false },

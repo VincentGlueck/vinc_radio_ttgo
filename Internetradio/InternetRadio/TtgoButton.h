@@ -11,9 +11,9 @@
 
 #define DEBOUNCE 15           // avoid button bouncing
 #define LONG_REPEAT_MS 100    // repeat long press every (default)
-#define CLICK_MS 100           // time for a single click/press
+#define CLICK_MS 80           // time for a single click/press
 #define CLICK_LONG_MS 500     // time before long click/press starts
-#define DOUBLE_CLICK_MS 50    // double-click detect time
+#define DOUBLE_CLICK_MS 40    // double-click detect time
 
 class TtgoButton {
 public:

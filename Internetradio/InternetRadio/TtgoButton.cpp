@@ -66,7 +66,7 @@ void TtgoButton::Listen() {
       callbackDone = false;
     } else if ((time > DOUBLE_CLICK_MS) && !waitForSingleClick) {
       if ((lastDoubleLowMillis != -1) && (millis() - lastDoubleLowMillis) > DOUBLE_CLICK_MS) {
-        allowSingleClickMillis = millis() + DOUBLE_CLICK_MS + (DOUBLE_CLICK_MS >> 2);
+        allowSingleClickMillis = millis() + (DOUBLE_CLICK_MS << 1);
         doubleClickCount++;
       }
       lastDoubleLowMillis = -1;
