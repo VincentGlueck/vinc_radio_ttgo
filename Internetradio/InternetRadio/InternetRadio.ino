@@ -49,7 +49,7 @@ Default PIN layout
 #define USE_STEREO true          // stereo (Pin25,26) or mono (Pin26 only) on most TTGOs
 #define BRIGHTNESS 220           // brightness during display = on (max 255)
 #define TFT_OFF_TIMEOUT 45000    // display will go off after xyz milliseconds
-#define TFT_ALWAYS_ON            // activate display always on, otherwise TFT_OFF_TIMEOUT millis will smoothly turn of display
+//#define TFT_ALWAYS_ON            // activate display always on, otherwise TFT_OFF_TIMEOUT millis will smoothly turn of display
 #define CREDITS_DISPLAY          // uncomment to be unkind ;-)
 #define DELAY_START_UP 600       // starup credits/slow down
 #define MIN_BG_SWITCH_MS 5000    // background switch on title change not before ms
@@ -754,6 +754,9 @@ void MDCallback(void *cbData, const char *type, bool isUnicode, const char *stri
   if (changeBg) {
     lowestBgChangeTimeMs = millis() + MIN_BG_SWITCH_MS;
     highstBgUnChangeTimeMs = millis() + MAX_BG_SAME_MS;
+#ifndef SWITCH_BG_WHEN_PAUSED    
+    if (playFlag)
+#endif  
     nextBackground();
   }
   lastTitle = title;
