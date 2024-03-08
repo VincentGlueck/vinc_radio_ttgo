@@ -5,7 +5,7 @@ https://www.youtube.com/@VolosProjects
 
 *TTGO/LILIGO board required, ESP32 required, Uno R3 or similar = no*
 
-German alike, so most of the streams are provided by vendors near by.
+German alike, so most of the streams are provided by vendors near by (Europe).
 
 ``stations.h``
 
@@ -49,6 +49,20 @@ __When playing__:
 # Limitations
 
 * TtgoButton sometimes fails on double-click/-press
+
+# Taskplay.ino
+
+* a 1st try to get it running using tasks (FreeRTOS). Crashes. Often. Even more often.
+* do _not_ use it, it's purpose is backup.
+
+```
+-> TASK Debug, max: 1524 // debug task itself, printing to Serial
+-> - TASK Stream, max: 44 // sound (if) comes from here
+-> - TASK Animation, max: 2312 // fake animation
+-> - TASK TTGOButton, max: 2512 // button listener, currently not used
+-> - TASK Worker, max: 1208 // worker, preparing things
+```
+_*max: xyz*_, memory used by task. May vary. And crash device. And, and, and, ...
 
 # Credits
 * audio, https://github.com/earlephilhower/ESP8266Audio
