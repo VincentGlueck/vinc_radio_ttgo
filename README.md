@@ -22,12 +22,16 @@ handlePlay()
 btn0.listen()
 btn1.listen()
 ```
+
   
 Do *not* use any ``delay(x)``!
 
-![ttgo_radio](https://github.com/VincentGlueck/vinc_radio_ttgo/assets/139572548/7bd122b4-38e4-4f22-b8ac-d5cafff77351)
+__As of march 2024, UI is simplified to the max.__
+Station and Volume are __one__. No labels. __Big__ time display. Title scroller, timer per title, done.
 
-``bg arts: https://creator.nightcafe.studio/u/Manncy``
+![raw_screen_simple](https://github.com/VincentGlueck/vinc_radio_ttgo/assets/139572548/b443f1e7-c5fd-4a99-8b6f-2d30cadfc777)
+
+``bg arts: (not this) https://creator.nightcafe.studio/u/Manncy``
 
 # Basic key functions
 
