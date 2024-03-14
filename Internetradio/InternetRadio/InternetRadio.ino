@@ -34,19 +34,19 @@
 #define USE_SERIAL_OUT         // this will output some status messages to the console and slow down things (use 115.200 or above)
 #define BUF_SIZE 0x0c00        // size of streaming buffer (0x400 -> more decoding errors, 0x1000 -> default)
 #define USE_STEREO true        // stereo (Pin25,26) or mono (Pin26 only) on most TTGOs
-#define BRIGHTNESS 220         // brightness during display = on (max 255)
+#define BRIGHTNESS 210         // brightness during display = on (max 255)
 #define TFT_OFF_TIMEOUT 45000  // display will go off after xyz milliseconds
-#define TFT_ALWAYS_ON          // activate display always on, otherwise TFT_OFF_TIMEOUT millis will smoothly turn of display
+//#define TFT_ALWAYS_ON        // activate display always on, otherwise TFT_OFF_TIMEOUT millis will smoothly turn of display
 #define CREDITS_DISPLAY        // uncomment to be unkind ;-)
 #define DELAY_START_UP 600     // starup credits/slow down
 #define MIN_BG_SWITCH_MS 5000  // background switch on title change not before ms
 #define MAX_BG_SAME_MS 30000   // background will force switch after ms
 //#define USE_STATION_GAIN      // comment in to change volume to default station's volume on station switch
-#define AMP_ANI_Y 170  // position of fake animation
-#define AMP_COLORFUL   // use colorful amp ani
+#define AMP_ANI_Y 170          // position of fake animation
+#define AMP_COLORFUL           // use colorful amp ani
 //#define RESTORE_BG_RAND_LINES // change background with animation, comment out to use top-down mode
 #define SWITCH_BG_WHEN_PAUSED  // comment out to ensure same background when not playing
-// #define SHOW_BRAND           // include title/'brand' - comment out to keep things simple and clear
+//#define SHOW_BRAND            // include title/'brand' - comment out to keep things simple and clear
 
 /************************
 * OUTPUT PIN26, PIN 25  *
@@ -56,11 +56,16 @@
  ***********************/
 
 // TODO: enter your WiFi credentials
-const char *SSID = "VincentVega01";
-const char *PASSWORD = "winter01";
+const char *SSID = "*****ssid*****";
+const char *PASSWORD = "****pw****";
 //==================================
 
 const char *PREF_NAMESPACE = "vtgor";
+
+//#define DO_GREETINGS          // sensless, or priceless?
+const char *GREET_0 = "Dedicated";
+const char *GREET_1 = "to";
+const char *GREET_2 = "whomever";
 
 #define Y_STATUS 44
 #define X_FRAME 38
@@ -118,6 +123,9 @@ TFT_eSprite stationSprite = TFT_eSprite(&tft);
 TFT_eSprite brandSprite = TFT_eSprite(&tft);
 TFT_eSprite volumeSprite = TFT_eSprite(&tft);
 
+TFT_eSprite cursorSprite = TFT_eSprite(&tft);
+bool cursor = false;
+
 // scroll
 uint16_t array_pos = 0;
 unsigned long nowMillis;
@@ -137,8 +145,8 @@ uint8_t bgRowOrder[60];
 uint8_t bgRowOrder[10];
 #endif
 int rowFactor;
-
-Preferences preferences;
+uint8_t showPos = 0;
+const uint8_t typeSpeed = 0x7f;
 
 // forwards
 void display(bool);
@@ -181,6 +189,36 @@ String resultToString(int result) {
     case RESULT_LONG_CLICK: return "long click";
     default: return "<undef>";
   }
+}
+
+void showCursor(int x, int y) {
+  if ((globalCnt & 0x3f) == 0x3f) {
+    cursor = !cursor;
+    if (cursor) {
+      cursorSprite.createSprite(4, 12);
+      cursorSprite.fillRect(0, 0, 4, 12, TFT_WHITE);
+    } else {
+      cursorSprite.createSprite(4, 12);
+      cursorSprite.fillRect(0, 0, 4, 12, TFT_BLACK);
+    }
+    cursorSprite.pushSprite(x, y);
+  }
+}
+
+void typeWrite(String str, uint8_t y, uint16_t x) {
+  ledcWrite(pwmLedChannelTFT, BRIGHTNESS);
+  while (showPos < str.length()) {
+    delay(2);
+    showCursor((showPos * 12) + x + 2, y);
+    if ((globalCnt & typeSpeed) == typeSpeed) {
+      tft.setTextColor(TFT_WHITE);
+      tft.setTextSize(2);
+      tft.drawChar(str.charAt(showPos), (showPos * 12) + x - 1 + (rnd() >> 7), y + (rnd() >> 5) - 4, 1);
+      showPos++;
+    }
+    globalCnt++;
+  }
+  showPos = 0;
 }
 
 void initTitle() {
@@ -258,43 +296,44 @@ void fade(bool in) {
   }
 }
 
-void showConnectStatus(String main, String sub) {
-  tft.fillScreen(backGroundColor);
-  tft.drawCentreString(main, (tft.width() >> 1), (tft.height() >> 1) - 36, 4);
-  tft.drawCentreString(sub, (tft.width() >> 1), (tft.height() >> 1), 2);
-  fade(true);
-  fade(false);
-}
-
 void setup() {
 #ifdef USE_SERIAL_OUT
   Serial.begin(115200);
   while (!Serial) delay(1);
 #endif
+  za = random(256);
+  zb = random(256);
+  zc = random(256);
+  zx = random(256);
   preallocateBuffer = malloc(preallocateBufferSize);
   preallocateCodec = malloc(preallocateCodecSize);
   if (!preallocateBuffer || !preallocateCodec) {
-    Serial.printf_P(PSTR("FATAL ERROR:  Unable to preallocate %d bytes for app\n"), preallocateBufferSize + preallocateCodecSize);
+    Serial.printf_P(PSTR("FATAL ERROR:  Unable to preallocate %d bytes\n"), preallocateBufferSize + preallocateCodecSize);
     while (1) delay(1000);  // Infinite halt
   }
   tft.init();
+  tft.fillRect(0, 0, tft.width(), tft.height(), TFT_BLACK);
+  tft.setSwapBytes(true);
   ledcSetup(pwmLedChannelTFT, pwmFreq, pwmResolution);
   ledcAttachPin(TFT_BL, pwmLedChannelTFT);
+#ifdef DO_GREETINGS
+  typeWrite(GREET_0, (tft.height() >> 1) - 28, 2);
+  typeWrite(GREET_1, (tft.height() >> 1), 60);
+  typeWrite(GREET_2, (tft.height() >> 1) + 36, 12);
+  delay(1000);
+#endif
+  tft.setTextSize(1);
   ledcWrite(pwmLedChannelTFT, 0);
   tft.setRotation(0);
-  tft.setSwapBytes(true);
   display(true);
-  showConnectStatus("WIFI", SSID);
   initWiFi();
-  showConnectStatus("Done", WiFi.localIP().toString());
-  delay(500);
-  readPreferences();
   btn0.SetLongPressRepeatMillis(180);
   btn1.SetLongPressRepeatMillis(180);
   rowFactor = tft.height() / sizeof(bgRowOrder);
 #ifdef CREDITS_DISPLAY
   showCredits();
 #endif
+  readPreferences();
   switchStation(0);
   if (targetGain == 0.0f) {
     targetGain = 10.0f;
@@ -308,10 +347,6 @@ void setup() {
   tftOffTimer = millis() + TFT_OFF_TIMEOUT;
   lowestBgChangeTimeMs = millis() + MIN_BG_SWITCH_MS;
   highstBgUnChangeTimeMs = millis() + MAX_BG_SAME_MS;
-  za = random(256);
-  zb = random(256);
-  zc = random(256);
-  zx = random(256);
   rgb_color = { (uint8_t)(120 - (rnd() >> 2)), (uint8_t)(130 - (rnd() >> 2)), (uint8_t)(100 - (rnd() >> 2)), (uint8_t)(rnd() >> 5), (uint8_t)(rnd() >> 6), (uint8_t)(rnd() >> 4) };
   for (int n = 0; n < sizeof(amp_colors) / sizeof(rgb); n++) {
     amp_colors[n] = rgb_color;
@@ -319,16 +354,22 @@ void setup() {
 }
 
 void writePreferences() {
+  Preferences preferences;
   preferences.begin(PREF_NAMESPACE, false);
   preferences.putInt("station", station);
-  preferences.putFloat("gain", targetGain);
+  preferences.putInt("gain", (int)targetGain);
   preferences.end();
 }
 
 void readPreferences() {
+  Preferences preferences;
   preferences.begin(PREF_NAMESPACE, true);
   station = preferences.getInt("station");
-  targetGain = preferences.getFloat("gain");
+  targetGain = (float)preferences.getInt("gain");
+  preferences.end();
+  if(targetGain == 0) {
+    targetGain = 10;
+  }
   lastGain = targetGain;
   preferences.end();
 }
