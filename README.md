@@ -30,6 +30,8 @@ __As of march 2024, UI is simplified to the max.__
 Station and Volume are __one__. No labels. __Big__ time display. Title scroller, timer per title, done.
 
 ![raw_screen_simple](https://github.com/VincentGlueck/vinc_radio_ttgo/assets/139572548/b443f1e7-c5fd-4a99-8b6f-2d30cadfc777)
+![IMG_20240314_174952490_HDR](https://github.com/VincentGlueck/vinc_radio_ttgo/assets/139572548/52ced723-668c-4f1b-9258-17fa702ced32)
+
 
 ``bg arts: (not this) https://creator.nightcafe.studio/u/Manncy``
 
@@ -54,23 +56,16 @@ __When playing__:
 
 * TtgoButton sometimes fails on double-click/-press
 
-# Taskplay.ino
-
-* a 1st try to get it running using tasks (FreeRTOS). Crashes. Often. Even more often.
-* do _not_ use it, it's purpose is backup.
-
 ```
--> TASK Debug, max: 1524 // debug task itself, printing to Serial
--> - TASK Stream, max: 44 // sound (if) comes from here
--> - TASK Animation, max: 2312 // fake animation
--> - TASK TTGOButton, max: 2512 // button listener, currently not used
--> - TASK Worker, max: 1208 // worker, preparing things
+# Latest fixes/changes
+* Taskplay.ino removed as it is in a too early state and probably will take lots of further investigation
+* readPreferences() crashed on new device; getFloat("key") caused this -> changed to getInt("key")
 ```
-_*max: xyz*_, memory used by task. May vary. And crash device. And, and, and, ...
 
 # Credits
 * audio, https://github.com/earlephilhower/ESP8266Audio
 * title scroller inspired by mrdude2478, https://github.com/Bodmer/TFT_eSPI/discussions/1828
+* preferences by Volodymyr Shymanskyy, https://github.com/vshymanskyy/Preferences
 * Volos projects, https://www.youtube.com/@VolosProjects
 * png/jpg -> .c file: http://www.rinkydinkelectronics.com/t_imageconverter565.php (unsecure, but ok)
 * TTGO button handling, https://github.com/VincentGlueck/TTGO_buttons
