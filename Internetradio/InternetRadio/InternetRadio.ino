@@ -31,22 +31,24 @@
 #include "colors.h"
 #include "time.h"
 
-#define USE_SERIAL_OUT         // this will output some status messages to the console and slow down things (use 115.200 or above)
-#define BUF_SIZE 0x0c00        // size of streaming buffer (0x400 -> more decoding errors, 0x1000 -> default)
-#define USE_STEREO true        // stereo (Pin25,26) or mono (Pin26 only) on most TTGOs
-#define BRIGHTNESS 210         // brightness during display = on (max 255)
-#define TFT_OFF_TIMEOUT 45000  // display will go off after xyz milliseconds
-//#define TFT_ALWAYS_ON        // activate display always on, otherwise TFT_OFF_TIMEOUT millis will smoothly turn of display
-#define CREDITS_DISPLAY        // uncomment to be unkind ;-)
-#define DELAY_START_UP 600     // starup credits/slow down
-#define MIN_BG_SWITCH_MS 5000  // background switch on title change not before ms
-#define MAX_BG_SAME_MS 30000   // background will force switch after ms
-//#define USE_STATION_GAIN      // comment in to change volume to default station's volume on station switch
-#define AMP_ANI_Y 170          // position of fake animation
-#define AMP_COLORFUL           // use colorful amp ani
-//#define RESTORE_BG_RAND_LINES // change background with animation, comment out to use top-down mode
-#define SWITCH_BG_WHEN_PAUSED  // comment out to ensure same background when not playing
-//#define SHOW_BRAND            // include title/'brand' - comment out to keep things simple and clear
+#define USE_SERIAL_OUT          // this will output some status messages to the console and slow down things (use 115.200 or above)
+#define BUF_SIZE 0x0c00         // size of streaming buffer (0x400 -> more decoding errors, 0x1000 -> default)
+#define USE_STEREO true         // stereo (Pin25,26) or mono (Pin26 only) on most TTGOs
+#define BRIGHTNESS 210          // brightness during display = on (max 255)
+#define TFT_OFF_TIMEOUT 300000  // display will go off after xyz milliseconds
+//#define TFT_ALWAYS_ON           // activate display always on, otherwise TFT_OFF_TIMEOUT millis will smoothly turn of display
+#define CREDITS_DISPLAY         // uncomment to be unkind ;-)
+#define DELAY_START_UP 600      // startup credits/slow down
+#define MIN_BG_SWITCH_MS 5000   // background switch on title change not before ms
+#define MAX_BG_SAME_MS 30000    // background will force switch after ms
+//#define USE_STATION_GAIN        // comment in to change volume to default station's volume on station switch
+#define AMP_ANI_Y 160             // position of fake animation
+#define AMP_COLORFUL   // use colorful amp ani
+//#define RESTORE_BG_RAND_LINES  // change background with animation, comment out to use top-down mode
+#define SWITCH_BG_WHEN_PAUSED   // comment out to ensure same background when not playing
+//#define SHOW_BRAND              // include title/'brand' - comment out to keep things simple and clear
+#define TIME_FONT 7             // valid values (without further changes) would be 6 or 7 (48 pixel fonts)
+#define USE_BG_SCROLLER         // title will be displayed incl. background image (slower), uncomment for speed optimized version
 
 /************************
 * OUTPUT PIN26, PIN 25  *
@@ -132,6 +134,7 @@ unsigned long nowMillis;
 unsigned long startMillis;
 uint8_t scrolldelay = 12;
 int tcount;
+int scrollPos;
 String blank;
 const uint8_t fontwidth = 16;
 uint8_t titleDeltaY = TITLE_DELTA_INITIAL;
@@ -367,7 +370,7 @@ void readPreferences() {
   station = preferences.getInt("station");
   targetGain = (float)preferences.getInt("gain");
   preferences.end();
-  if(targetGain == 0) {
+  if (targetGain == 0) {
     targetGain = 10;
   }
   lastGain = targetGain;
@@ -431,11 +434,52 @@ void showPlayTime() {
       timeSprite.setSwapBytes(true);
       timeSprite.pushImage(0, 0, tft.width(), 48, &bg_img[bgImage][tft.width() * Y_TIME]);
       timeSprite.setTextColor(TFT_WHITE);
-      timeSprite.drawCentreString(str, tft.width() >> 1, 0, 7);
+      timeSprite.drawCentreString(str, tft.width() >> 1, 0, TIME_FONT);
       timeSprite.pushSprite(0, Y_TIME);
     }
   }
 }
+
+
+#ifdef USE_BG_SCROLLER
+void showTitle() {
+  if (nowMillis - startMillis >= scrolldelay) {
+    int height = 26;
+    int y = tft.height() - height;
+    titleSprite.createSprite(tft.width(), height);
+    titleSprite.setSwapBytes(true);
+    rgb c;
+    int sRow = 0;
+    int idx = tft.width() * 214;
+    for (int row = 0; row < titleSprite.height(); row++) {
+      for (int col = 0; col < tft.width(); col++) {
+        unsigned short val = bg_img[bgImage][idx];
+        c.r = ((((val & 0xf800) >> 11) << 3) >> 2) + ((((val & 0xf800) >> 11) << 3) >> 1);
+        c.g = ((((val & 0x07e0) >> 5) << 2) >> 2) + ((((val & 0x07e0) >> 5) << 2) >> 1);
+        c.b = ((((val & 0x1f)) << 3) >> 2) + ((((val & 0x1f)) << 3) >> 1);
+        titleSprite.drawPixel(col, sRow, rgb24to565(&c));
+        idx++;
+      }
+      sRow++;
+    }
+    titleSprite.setTextFont(2);
+    titleSprite.setTextSize(2);
+    titleSprite.setCursor(scrollPos, -2);
+    titleSprite.setTextColor(TFT_WHITE);
+    titleSprite.print(title);
+    scrollPos--;
+    if (scrollPos < -(titleLength * fontwidth)) {
+      scrollPos = tft.width();
+    }
+    titleSprite.pushSprite(0, Y_SCROLL - 9 + titleDeltaY);
+    if (titleDeltaY > 0 && ((globalCnt & 0x3) == 0x3)) {
+      titleDeltaY--;
+    }
+    startMillis = nowMillis;
+  }
+}
+
+#else
 
 void showTitle() {
   uint16_t arraysize = title.length() + 1;
@@ -463,7 +507,7 @@ void showTitle() {
     startMillis = nowMillis;
   }
 }
-
+#endif
 
 void restoreBg(int y, int height) {
   tft.pushImage(0, y, tft.width(), height, &bg_img[bgImage][tft.width() * y]);
@@ -581,7 +625,11 @@ void switchStation(int direction) {
 void handlePlay() {
   if ((globalCnt & 0x1ff) == 0x1ff) {
     showPlayTime();
+#ifdef USE_BG_SCROLLER    
+    if ((globalCnt & 0x3f) == 0x3f) showAmpAni();
+#else
     if ((globalCnt & 0x1ff) == 0x1ff) showAmpAni();
+#endif    
     if (fgain != targetGain) {
       fgain = fgain + deltaGain;
       if (((fgain > targetGain) && (deltaGain > 0.05f)) || ((fgain < targetGain) && (deltaGain < 0.05f))) {
@@ -773,7 +821,11 @@ void MDCallback(void *cbData, const char *type, bool isUnicode, const char *stri
   }
   lastTitle = title;
   titleLength = title.length();
-  if (titleLength == 0) title = "Wait for title info";
+  if (titleLength == 0) {
+    title = "Wait for title info";
+    titleLength = title.length();
+  }
+  scrollPos = tft.width();
 #ifdef USE_SERIAL_OUT
   Serial.printf("METADATA(%s) '%s' = '%s'\n", ptr, s1, s2);
   Serial.flush();
